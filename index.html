@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JobSwipe MVP Prototype</title>
+    <style>
+        /* --- CSS для СТИЛІЗАЦІЇ КАРТКИ --- */
+        body { font-family: Arial, sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; background-color: #f0f2f5; }
+        .card-container { width: 350px; height: 450px; position: relative; }
+        .job-card {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            background-color: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+            box-sizing: border-box;
+            transition: transform 0.5s ease-out; /* Анімація для свайпу */
+            cursor: grab;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+        .card-header { border-bottom: 2px solid #eee; padding-bottom: 10px; margin-bottom: 10px; }
+        .card-title { font-size: 1.4em; font-weight: bold; margin-bottom: 5px; color: #333; }
+        .card-company { font-size: 1em; color: #555; }
+        .card-tags { margin-top: 10px; }
+        .tag { display: inline-block; background-color: #e0f7fa; color: #00838f; border-radius: 12px; padding: 4px 8px; margin: 3px; font-size: 0.8em; }
+        .swipe-info { text-align: center; margin-top: 20px; font-weight: bold; color: #666; }
+    </style>
+    </head>
+<body>
+    <div class="card-container" id="card-container">
+        <p>Завантаження вакансій...</p>
+    </div>
+
+    <div class="swipe-info">
+        <button onclick="simulateSwipe('like')" style="background-color: #4CAF50; color: white; padding: 10px 20px; border: none; border-radius: 5px; margin-right: 15px;">Свайп Праворуч (👍)</button>
+        <button onclick="simulateSwipe('nope')" style="background-color: #f44336; color: white; padding: 10px 20px; border: none; border-radius: 5px;">Свайп Ліворуч (👎)</button>
+    </div>
+
+    <script>
+        const API_URL = 'http://127.0.0.1:5000/api/vacancies';
+        const SWIPE_URL = 'http://127.0.0.1:5000/api/swipe';
+        const cardContainer = document.getElementById('card-container');
+        let currentVacancies = [];
+
+        // 1. ФУНКЦІЯ СТВОРЕННЯ КАРТКИ
+        function createCard(vacancy) {
+            const card = document.createElement('div');
+            card.className = 'job-card';
+            card.dataset.id = vacancy.id_source;
+
+            const tagsHtml = (vacancy.tags_tech || []).concat(vacancy.tags_company || [])
+                .map(tag => `<span class="tag">${tag}</span>`).join('');
+
+            card.innerHTML = `
+                <div class="card-header">
+                    <div class="card-title">${vacancy.title}</div>
+                    <div class="card-company">${vacancy.company_name} · ${vacancy.city}</div>
+                </div>
+                <div>
+                    <p>${vacancy.full_description.substring(0, 150)}...</p>
+                </div>
+                <div class="card-tags">
+                    ${tagsHtml}
+                </div>
+            `;
+            return card;
+        }
+
+        // 2. ФУНКЦІЯ ОБРОБКИ СВАЙПУ (ІМІТАЦІЯ)
+        function simulateSwipe(type) {
+            if (currentVacancies.length === 0) {
+                alert('Вакансії закінчилися! Перезавантажте сторінку.');
+                return;
+            }
+
+            const topCard = cardContainer.querySelector('.job-card');
+            const vacancyId = topCard.dataset.id;
+
+            // Надсилаємо POST-запит до бекенду
+            fetch(SWIPE_URL, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    id_source: vacancyId,
+                    type: type
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                console.log('Swipe response:', data);
+
+                // Візуальна анімація (просто переміщуємо картку)
+                topCard.style.transform = type === 'like' 
+                    ? 'translateX(1000px) rotate(30deg)' 
+                    : 'translateX(-1000px) rotate(-30deg)';
+                topCard.style.opacity = 0;
+                
+                // Видаляємо картку після анімації
+                setTimeout(() => {
+                    topCard.remove();
+                    currentVacancies.shift(); 
+                    if (currentVacancies.length < 3) {
+                        fetchVacancies(); // Завантажуємо наступну порцію, якщо картки закінчуються
+                    }
+                }, 500); 
+
+            })
+            .catch(error => {
+                console.error('Error processing swipe:', error);
+                alert('Помилка при обробці свайпу.');
+            });
+        }
+
+        // 3. ФУНКЦІЯ ЗАВАНТАЖЕННЯ ДАНИХ З API
+        function fetchVacancies() {
+            fetch(API_URL)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    // Парсимо JSON-рядок (оскільки dumps повертає рядок)
+                    const vacancies = data; 
+
+                    if (vacancies.length === 0) {
+                        cardContainer.innerHTML = "<p>На жаль, нових вакансій не знайдено.</p>";
+                        return;
+                    }
+
+                    cardContainer.innerHTML = ''; // Очищаємо "Завантаження..."
+                    
+                    // Додаємо нові вакансії до поточного списку
+                    currentVacancies = currentVacancies.concat(vacancies); 
+                    
+                    // Відображаємо всі картки (нова картка завжди зверху)
+                    currentVacancies.reverse().forEach(vacancy => {
+                        cardContainer.appendChild(createCard(vacancy));
+                    });
+                })
+                .catch(error => {
+                    console.error("Fetch Error:", error);
+                    cardContainer.innerHTML = "<p>Помилка з'єднання з API. Перевірте, чи запущений Flask-сервер.</p>";
+                });
+        }
+
+        // Запуск
+        fetchVacancies();
+    </script>
+</body>
+</html>
