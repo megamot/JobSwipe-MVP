@@ -20,24 +20,32 @@ vacancies_collection = db.vacancies
 def get_vacancies():
     """Повертає 10 випадкових непереглянутих вакансій."""
     try:
-        # Вибираємо 10 випадкових вакансій для MVP
-        # $sample забезпечує випадковий вибір без додаткового навантаження
         pipeline = [
-            {'$match': {'tags_tech': {'$ne': None}}}, # Фільтр, щоб вибрати тільки теговані
+            {'$match': {'tags_tech': {'$ne': None}}}, 
             {'$sample': {'size': 10}}
         ]
         
-        vacancies = vacancies_collection.aggregate(pipeline)
+        vacancies_cursor = vacancies_collection.aggregate(pipeline)
         
-        # Використовуємо dumps для коректного перетворення об'єктів MongoDB (наприклад, ObjectId)
-        json_vacancies = dumps(list(vacancies))
+        vacancies_list = []
+        for v in vacancies_cursor:
+            vacancies_list.append({
+                'id_source': v.get('id_source'),
+                'title': v.get('title'),
+                'company_name': v.get('company_name'),
+                'city': v.get('city'),
+                'full_description': v.get('full_description'), # <<< ДОДАНО ЦЕ ПОЛЕ
+                'tags_tech': v.get('tags_tech', []),
+                'tags_company': v.get('tags_company', []),
+            })
         
-        # Повертаємо дані у форматі JSON
-        return json_vacancies, 200, {'Content-Type': 'application/json'}
+        # Використовуємо jsonify для коректного форматування в JSON
+        return jsonify(vacancies_list), 200
 
     except Exception as e:
         app.logger.error(f"MongoDB Error: {e}")
         return jsonify({'error': 'Failed to fetch vacancies from database'}), 500
+
 
 @app.route('/api/swipe', methods=['POST'])
 def process_swipe():
