@@ -1,5 +1,5 @@
 from pymongo import MongoClient
-from tagging_config import generate_tags, clean_html_for_display
+from tagging_config import generate_tags, get_raw_description
 from datetime import datetime, UTC # <<< ІМПОРТУЄМО UTC
 from typing import Dict, List
 import requests
@@ -31,7 +31,7 @@ def save_vacancy(raw_vacancy_data: Dict):
     raw_description = raw_vacancy_data.get('description', '') # Оригінальний опис з HTML
 
     # URL формуємо на основі ID компанії (notebookId) та вакансії (id)
-    source_url = f"https://robota.ua/company/{raw_vacancy_data['notebookId']}/vacancy/{vacancy_id}"
+    source_url = f"https://robota.ua/company{raw_vacancy_data['notebookId']}/vacancy{vacancy_id}"
 
     # 1. Створення основного документа
     processed_data = {
@@ -44,7 +44,7 @@ def save_vacancy(raw_vacancy_data: Dict):
         'city': raw_vacancy_data.get('vacancyAddress', 'N/A'),
         
         # <<< ВИПРАВЛЕНО: ЗБЕРІГАЄМО ТЕКСТ ДЛЯ ВІДОБРАЖЕННЯ >>>
-        'full_description': clean_html_for_display(raw_description), 
+        'full_description': get_raw_description(raw_description),  
         
         'date_published': raw_vacancy_data.get('date'),
         'date_parsed': datetime.now(UTC), 

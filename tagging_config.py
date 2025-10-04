@@ -50,32 +50,27 @@ GEOGRAPHY_MAPPING: Dict[int, str] = {
     34: "#Варшава", 
 }
 
+
 # --- ФУНКЦІЇ ОБРОБКИ ТА ТЕГУВАННЯ ---
 
-def clean_html_for_display(raw_html: str) -> str:
+def get_raw_description(raw_html: str) -> str:
     """
-    Видаляє HTML-теги, але намагається зберегти абзаци та регістр.
-    Це версія для відображення на сайті.
+    Повертає необроблений HTML-рядок. 
+    Усі HTML-теги будуть збережені для відображення у браузері.
     """
-    # Заміна HTML-тегів, що відповідають за структуру, на символи нового рядка для читабельності
-    cleantext = raw_html.replace('</p>', '\n\n').replace('<br>', '\n').replace('<br/>', '\n')
-    
-    # Видалення решти HTML-тегів та сутностей
-    cleanr = re.compile('<.*?>|&([a-z0-9]+|#[0-9]{1,6}|#x[0-9a-f]{1,6});')
-    cleantext = re.sub(cleanr, '', cleantext)
-    
-    # Видалення зайвих пробілів на початку/в кінці та нормалізація пробілів
-    return cleantext.strip()
+    return raw_html  # Повертаємо, як є, для відображення
+
 
 def get_text_for_tagging(text: str) -> str:
     """
-    Готує текст для NLP/тегування: переводить в нижній регістр та нормалізує пробіли.
+    Готує текст для NLP/тегування: видаляє HTML, переводить в нижній регістр та нормалізує пробіли.
     """
-    # Використовуємо функцію clean_html_for_display для видалення HTML
-    clean_text = clean_html_for_display(text)
+    # 1. Видалення всіх HTML-тегів та HTML-сутностей
+    cleanr = re.compile('<.*?>|&([a-z0-9]+|#[0-9]{1,6}|#x[0-9a-f]{1,6});')
+    cleantext = re.sub(cleanr, '', text)
     
-    # Переводимо в нижній регістр та нормалізуємо всі пробіли для ефективного пошуку ключових слів
-    return ' '.join(clean_text.split()).lower()
+    # 2. Переводимо в нижній регістр та нормалізуємо всі пробіли
+    return ' '.join(cleantext.split()).lower()
 
 
 def get_geo_tags(city_id: int, address: str) -> List[str]:
@@ -108,7 +103,7 @@ def generate_tags(vacancy: Dict) -> Dict[str, List[str]]:
     title = vacancy.get('name', '')
     raw_description = vacancy.get('description', '')
     
-    # ВИКОРИСТОВУЄМО ОЧИЩЕНИЙ ТЕКСТ ДЛЯ ТЕГУВАННЯ
+    # ВИКОРИСТОВУЄМО ОЧИЩЕНИЙ ТЕКСТ ДЛЯ ТЕГУВАННЯ (викликаємо нову логіку)
     description_for_tagging = get_text_for_tagging(raw_description)
     title_for_tagging = title.lower()
     

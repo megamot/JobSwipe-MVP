@@ -73,12 +73,13 @@
                     ${tagsHtml}
                 </div>
 
-                <div class="full-description">
-                    <p>${vacancy.full_description}</p>
-                </div>
+                <div class="full-description" id="description-content">
+                    </div>
 
                 <p style="margin-top: 30px;"><a href="${vacancy.source_url}" target="_blank">Перейти до оригінальної вакансії на Robota.ua →</a></p>
             `;
+            document.getElementById('description-content').innerHTML = vacancy.full_description || 'Опис вакансії недоступний.';
+        
         }
 
         fetchVacancyDetails();
