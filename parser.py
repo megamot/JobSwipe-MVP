@@ -1,6 +1,6 @@
 from pymongo import MongoClient
 from tagging_config import generate_tags, clean_html 
-from datetime import datetime
+from datetime import datetime, UTC # <<< ІМПОРТУЄМО UTC
 from typing import Dict, List
 import requests
 import time
@@ -11,16 +11,16 @@ client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=5000)
 db = client.jobswipe_db
 vacancies_collection = db.vacancies 
 
-# URL для Robota.ua API пошуку
-ROBOTA_API_URL = "https://api.robota.ua/vacancy/search"
+# URL для Robota.ua API пошуку (буде використаний для динамічного формування)
+ROBOTA_COMPANY_VACANCIES_BASE_URL = "https://api.rabota.ua/company/{companyId}/vacancies"
 
-# Параметри для імітації "ТОП-роботодавців" (на прикладі SKELAR)
-# Вказуємо ID компанії, щоб отримати її вакансії
+# Параметри для імітації "ТОП-роботодавців" (додайте сюди ваші ID)
 COMPANY_IDS = [
     6627493,  # SKELAR
-    # Тут будуть додані ID інших ТОП-компаній
+    720,      # Приклад компанії з вашого JS (якщо вона не має вакансій, це перевірить виправлення)
+    # Додайте інші ID компаній тут
 ]
-VACANCIES_PER_PAGE = 50
+# VACANCIES_PER_PAGE = 50 # Не потрібен для цього типу API
 
 # --- ФУНКЦІЇ БАЗИ ДАНИХ ---
 
@@ -38,12 +38,12 @@ def save_vacancy(raw_vacancy_data: Dict):
         'source_url': source_url,
         'title': raw_vacancy_data.get('name', 'N/A'),
         'company_name': raw_vacancy_data.get('companyName', 'N/A'),
-        'salary_min': raw_vacancy_data.get('salary', 0), # Robota.ua повертає одне поле salary
+        'salary_min': raw_vacancy_data.get('salary', 0), 
         'salary_max': raw_vacancy_data.get('salary', 0), 
         'city': raw_vacancy_data.get('vacancyAddress', 'N/A'),
         'full_description': clean_html(raw_vacancy_data.get('description', '')),
         'date_published': raw_vacancy_data.get('date'),
-        'date_parsed': datetime.utcnow(),
+        'date_parsed': datetime.now(UTC), # <<< ВИПРАВЛЕНО DEPRECATION WARNING
     }
     
     # 2. Генерація тегів
@@ -54,7 +54,7 @@ def save_vacancy(raw_vacancy_data: Dict):
     vacancies_collection.update_one(
         {'id_source': processed_data['id_source']},
         {'$set': processed_data},
-        upsert=True # Якщо не знайдено, створити новий (insert)
+        upsert=True 
     )
     print(f"✅ Збережено/Оновлено: {processed_data['title']} | Теги: {', '.join(processed_data['tags_tech'])}")
 
@@ -62,53 +62,52 @@ def save_vacancy(raw_vacancy_data: Dict):
 # --- ФУНКЦІЯ ПАРСИНГУ ROBOTA.UA ---
 
 def fetch_and_process_jobs_robota():
-    """Виконує API-запити до Robota.ua та обробляє дані."""
+    """Виконує API-запити до Robota.ua для кожної компанії та обробляє дані."""
     
     total_processed = 0
     
     for company_id in COMPANY_IDS:
-        page = 0
-        company_processed = 0
+        # 1. Формування повного URL для поточної компанії
+        company_url = ROBOTA_COMPANY_VACANCIES_BASE_URL.format(companyId=company_id)
         
-        while True:
-            # 1. Формування параметрів запиту
-            params = {
-                'CompanyId': company_id,
-                'page': page,
-                'count': VACANCIES_PER_PAGE
-            }
+        try:
+            # 2. Виконання HTTP-запиту
+            response = requests.get(company_url, timeout=10)
+            response.raise_for_status() 
+            data = response.json()
             
-            try:
-                # 2. Виконання HTTP-запиту
-                response = requests.get(ROBOTA_API_URL, params=params, timeout=10)
-                response.raise_for_status() # Виклик помилки для поганих статус-кодів
-                data = response.json()
-            except requests.exceptions.RequestException as e:
-                print(f"❌ Помилка запиту до Robota.ua (ID: {company_id}, сторінка {page}): {e}")
-                break
-
             documents = data.get('documents', [])
-            total_vacancies = data.get('total', 0)
+            total_vacancies = len(documents)
 
+            # <<< ВИПРАВЛЕНО: БЕЗПЕЧНЕ ОТРИМАННЯ НАЗВИ КОМПАНІЇ >>>
             if not documents:
-                break # Вакансії на цій сторінці закінчилися
+                company_name = f'ID {company_id}'
+                print(f"-> Компанія {company_name}: Не знайдено активних вакансій.")
+                continue
+            
+            # Якщо вакансії є, беремо назву компанії з першого документа
+            company_name = documents[0].get('companyName', f'ID {company_id}')
 
             # 3. Обробка та збереження
+            company_processed = 0
             for doc in documents:
+                # Додаємо CompanyId до doc, щоб save_vacancy могла сформувати коректний source_url
+                doc['notebookId'] = company_id 
                 save_vacancy(doc)
                 total_processed += 1
                 company_processed += 1
                 
-            print(f"-> Оброблено {company_processed} з {total_vacancies} вакансій компанії ID {company_id}")
+            print(f"✅ Оброблено {company_processed} з {total_vacancies} вакансій компанії {company_name} (ID {company_id}).")
 
-            # 4. Перехід на наступну сторінку та пауза
-            page += 1
-            if company_processed >= total_vacancies or page * VACANCIES_PER_PAGE >= 1000:
-                break # Захист від нескінченного циклу або досягнення ліміту
-            
-            time.sleep(1) # Пауза 1 секунда між запитами для уникнення блокування
+            # 4. Пауза між запитами
+            time.sleep(1) 
 
-    print(f"\n--- ЕТАП ROBOTA.UA ЗАВЕРШЕНО. Обробка {total_processed} вакансій. ---")
+        except requests.exceptions.RequestException as e:
+            print(f"❌ Помилка запиту до Robota.ua (ID: {company_id}): {e}")
+            time.sleep(2) 
+            continue
+
+    print(f"\n--- ЕТАП ROBOTA.UA ЗАВЕРШЕНО. Всього оброблено {total_processed} вакансій. ---")
 
 
 if __name__ == "__main__":
