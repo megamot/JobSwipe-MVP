@@ -48,46 +48,28 @@
         let currentVacancies = [];
 
        // 1. ФУНКЦІЯ СТВОРЕННЯ КАРТКИ
-    function createCard(vacancy) {
+        function createCard(vacancy) {
         const card = document.createElement('div');
         card.className = 'job-card';
         card.dataset.id = vacancy.id_source;
 
         // Додаємо обробник кліку для показу повного опису
-        card.onclick = () => showFullDescription(vacancy); 
-
-        const allTags = (vacancy.tags_tech || []).concat(vacancy.tags_company || []);
-        const tagsHtml = allTags.map(tag => `<span class="tag">${tag}</span>`).join('');
-
-        // У body картки ми залишаємо лише скорочений опис
-        card.innerHTML = `
-            <div class="card-header">
-                <div class="card-title">${vacancy.title}</div>
-                <div class="card-company">${vacancy.company_name} · ${vacancy.city}</div>
-            </div>
-            <div>
-                <p>— Натисніть, щоб побачити повний опис —</p> 
-            </div>
-            <div class="card-tags">
-                ${tagsHtml}
-            </div>
-        `;
-        return card;
-    }
-        // 1.2. ФУНКЦІЯ ПОКАЗУ ПОВНОГО ОПИСУ (Модальне вікно або Alert)
-            function showFullDescription(vacancy) {
-                // Ми використовуємо Alert для MVP, але в повноцінному додатку тут буде модальне вікно.
-                
-                // Використовуємо .substring(0, 1000) для обмеження, якщо опис занадто довгий.
-                const description_text = vacancy.full_description.substring(0, 1000) + '... (повний опис обрізано для показу)';
-
-                alert(
-                    `ВАКАНСІЯ: ${vacancy.title}\n\n` +
-                    `КОМПАНІЯ: ${vacancy.company_name}\n\n` +
-                    `ТЕГИ: ${vacancy.tags_tech.join(', ')}\n\n` +
-                    `ОПИС:\n${description_text}`
-                );
-            }
+        card.onclick = () => {
+        // Перехід на нову сторінку, передаючи ID у параметрі
+        window.location.href = `details.html?id=${vacancy.id_source}`;
+    }; 
+        // Відображаємо лише заголовок та компанію
+    card.innerHTML = `
+        <div class="card-header">
+            <div class="card-title">${vacancy.title}</div>
+            <div class="card-company">${vacancy.company_name} · ${vacancy.city}</div>
+        </div>
+        <div class="card-tags">
+            ${(vacancy.tags_tech || []).concat(vacancy.tags_company || []).map(tag => `<span class="tag">${tag}</span>`).slice(0, 5).join('')}
+        </div>
+    `;
+    return card;
+}
 
         // 2. ФУНКЦІЯ ОБРОБКИ СВАЙПУ (ІМІТАЦІЯ)
         function simulateSwipe(type) {

@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title id="page-title">Деталі вакансії</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 40px auto; padding: 20px; background-color: #f9f9f9; }
+        h1 { color: #333; margin-bottom: 5px; }
+        .company-info { font-size: 1.1em; color: #555; margin-bottom: 20px; }
+        .full-description { background-color: white; padding: 20px; border-radius: 8px; line-height: 1.6; margin-top: 20px; }
+        .tag-list { margin: 20px 0; }
+        .tag { display: inline-block; background-color: #00838f; color: white; border-radius: 15px; padding: 5px 10px; margin: 4px; font-size: 0.9em; }
+        .back-link { display: block; margin-bottom: 20px; text-decoration: none; color: #00838f; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <a href="index.html" class="back-link">← Повернутися до свайпу вакансій</a>
+    
+    <div id="vacancy-details">
+        <p>Завантаження деталей вакансії...</p>
+    </div>
+
+    <script>
+        const API_BASE_URL = 'http://127.0.0.1:5000/api/vacancy';
+        const detailsContainer = document.getElementById('vacancy-details');
+
+        // Функція для отримання параметра з URL (ID вакансії)
+        function getVacancyIdFromUrl() {
+            const params = new URLSearchParams(window.location.search);
+            return params.get('id');
+        }
+
+        // Функція завантаження даних
+        async function fetchVacancyDetails() {
+            const id_source = getVacancyIdFromUrl();
+            if (!id_source) {
+                detailsContainer.innerHTML = 'Помилка: ID вакансії не знайдено.';
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/${id_source}`);
+                const vacancy = await response.json();
+
+                if (response.status !== 200) {
+                    detailsContainer.innerHTML = `Помилка завантаження: ${vacancy.error || 'Невідома помилка'}`;
+                    return;
+                }
+                
+                // Відображення деталей
+                renderDetails(vacancy);
+
+            } catch (error) {
+                detailsContainer.innerHTML = 'Помилка з\'єднання з сервером API.';
+                console.error("Fetch Details Error:", error);
+            }
+        }
+
+        // Функція рендерингу деталей
+        function renderDetails(vacancy) {
+            document.getElementById('page-title').textContent = `${vacancy.title} — ${vacancy.company_name}`;
+            
+            const allTags = (vacancy.tags_tech || []).concat(vacancy.tags_company || []);
+            const tagsHtml = allTags.map(tag => `<span class="tag">${tag}</span>`).join('');
+
+            // Використовуємо description, оскільки ви відправили його як очищений текст
+            detailsContainer.innerHTML = `
+                <h1>${vacancy.title}</h1>
+                <div class="company-info">${vacancy.company_name} · ${vacancy.city}</div>
+                
+                <div class="tag-list">
+                    ${tagsHtml}
+                </div>
+
+                <div class="full-description">
+                    <p>${vacancy.full_description}</p>
+                </div>
+
+                <p style="margin-top: 30px;"><a href="${vacancy.source_url}" target="_blank">Перейти до оригінальної вакансії на Robota.ua →</a></p>
+            `;
+        }
+
+        fetchVacancyDetails();
+    </script>
+</body>
+</html>

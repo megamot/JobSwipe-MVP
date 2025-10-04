@@ -47,6 +47,34 @@ def get_vacancies():
         return jsonify({'error': 'Failed to fetch vacancies from database'}), 500
 
 
+@app.route('/api/vacancy/<id_source>', methods=['GET'])
+def get_single_vacancy(id_source):
+    """Повертає повні дані однієї вакансії за її id_source."""
+    try:
+        # 1. Шукаємо вакансію за унікальним ідентифікатором
+        vacancy = vacancies_collection.find_one({'id_source': id_source})
+        
+        if not vacancy:
+            return jsonify({'error': 'Vacancy not found'}), 404
+
+        # 2. Очищаємо ObjectId (вибираємо потрібні поля) та формуємо об'єкт для відправки
+        response_data = {
+            'id_source': vacancy.get('id_source'),
+            'title': vacancy.get('title'),
+            'company_name': vacancy.get('company_name'),
+            'city': vacancy.get('city'),
+            'full_description': vacancy.get('full_description'), # Повний опис
+            'tags_tech': vacancy.get('tags_tech', []),
+            'tags_company': vacancy.get('tags_company', []),
+            'source_url': vacancy.get('source_url') # Оригінальне посилання на Robota.ua
+        }
+        
+        return jsonify(response_data), 200
+
+    except Exception as e:
+        app.logger.error(f"Error fetching single vacancy: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+    
 @app.route('/api/swipe', methods=['POST'])
 def process_swipe():
     """Обробляє свайп: зберігає реакцію користувача (like/nope)."""

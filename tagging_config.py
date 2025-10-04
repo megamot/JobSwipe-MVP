@@ -2,8 +2,6 @@ import re
 from typing import List, Dict
 
 # 1. МАПІНГ РІВНІВ (Специфічний для Robota.ua, на основі аналізу)
-# Використовуємо profLevelId, коли він доступний, як найбільш надійне джерело рівня.
-# 2=Junior, 3=Middle/Specialist, 4=Senior/Lead.
 ROBOTA_LEVEL_MAPPING: Dict[int, str] = {
     1: "#Trainee",
     2: "#Junior",
@@ -13,7 +11,6 @@ ROBOTA_LEVEL_MAPPING: Dict[int, str] = {
 }
 
 # 2. ТЕГУВАННЯ НАПРЯМКІВ та ТЕХНОЛОГІЙ (tags_tech)
-# Використовується для пошуку у заголовку та описі
 TECH_DIRECTION_TAGS: Dict[str, List[str]] = {
     # IT Розробка та Data
     "#Backend": ['java', 'python', 'node.js', 'golang', 'php', 'django', 'backend'],
@@ -50,17 +47,36 @@ GEOGRAPHY_MAPPING: Dict[int, str] = {
     3: "#Одеса",
     4: "#Дніпро",
     5: "#Львів",
-    34: "#Варшава", # cityId: 34 для цієї вакансії
-    # 0 використовуємо для remote, якщо не вказано інше
+    34: "#Варшава", 
 }
 
 # --- ФУНКЦІЇ ОБРОБКИ ТА ТЕГУВАННЯ ---
 
-def clean_html(raw_html: str) -> str:
-    """Видаляє HTML-теги та зайві пробіли."""
+def clean_html_for_display(raw_html: str) -> str:
+    """
+    Видаляє HTML-теги, але намагається зберегти абзаци та регістр.
+    Це версія для відображення на сайті.
+    """
+    # Заміна HTML-тегів, що відповідають за структуру, на символи нового рядка для читабельності
+    cleantext = raw_html.replace('</p>', '\n\n').replace('<br>', '\n').replace('<br/>', '\n')
+    
+    # Видалення решти HTML-тегів та сутностей
     cleanr = re.compile('<.*?>|&([a-z0-9]+|#[0-9]{1,6}|#x[0-9a-f]{1,6});')
-    cleantext = re.sub(cleanr, '', raw_html)
-    return ' '.join(cleantext.split()).lower()
+    cleantext = re.sub(cleanr, '', cleantext)
+    
+    # Видалення зайвих пробілів на початку/в кінці та нормалізація пробілів
+    return cleantext.strip()
+
+def get_text_for_tagging(text: str) -> str:
+    """
+    Готує текст для NLP/тегування: переводить в нижній регістр та нормалізує пробіли.
+    """
+    # Використовуємо функцію clean_html_for_display для видалення HTML
+    clean_text = clean_html_for_display(text)
+    
+    # Переводимо в нижній регістр та нормалізуємо всі пробіли для ефективного пошуку ключових слів
+    return ' '.join(clean_text.split()).lower()
+
 
 def get_geo_tags(city_id: int, address: str) -> List[str]:
     """Генерує гео-теги на основі ID та адреси."""
@@ -79,7 +95,9 @@ def get_geo_tags(city_id: int, address: str) -> List[str]:
     
     # 3. Тегування метро/районів (наприклад, для Києва)
     if 'костянтинівська, 71' in address_lower or 'поділ' in address_lower:
-        tags.add("#Київ_Поділ")
+         # Додаємо тег для Києва, якщо його не було в city_id
+         tags.add("#Київ")
+         tags.add("#Київ_Поділ")
 
     return list(tags)
 
@@ -87,9 +105,14 @@ def get_geo_tags(city_id: int, address: str) -> List[str]:
 def generate_tags(vacancy: Dict) -> Dict[str, List[str]]:
     """Головна функція для генерації тегів на основі JSON-вакансії."""
     
-    title = vacancy.get('name', '').lower()
-    description_cleaned = clean_html(vacancy.get('description', ''))
-    full_text = title + " " + description_cleaned
+    title = vacancy.get('name', '')
+    raw_description = vacancy.get('description', '')
+    
+    # ВИКОРИСТОВУЄМО ОЧИЩЕНИЙ ТЕКСТ ДЛЯ ТЕГУВАННЯ
+    description_for_tagging = get_text_for_tagging(raw_description)
+    title_for_tagging = title.lower()
+    
+    full_text = title_for_tagging + " " + description_for_tagging
     
     tech_tags = set()
     company_tags = set()
@@ -110,7 +133,7 @@ def generate_tags(vacancy: Dict) -> Dict[str, List[str]]:
         if any(keyword in full_text or keyword in company_name for keyword in keywords):
             company_tags.add(tag)
     
-    # Встановлюємо тег Venture Builder, оскільки це загальний тег SKELAR
+    # Встановлюємо тег Venture Builder
     if 'skelar' in company_name or 'venture builder' in full_text:
          company_tags.add("#Venture_Builder")
     
@@ -119,11 +142,11 @@ def generate_tags(vacancy: Dict) -> Dict[str, List[str]]:
     address = vacancy.get('vacancyAddress', '')
     company_tags.update(get_geo_tags(city_id, address))
 
-    # 5. Додаткове тегування РІВНЯ з title (якщо ID не було або для DOU/Jooble)
-    if not any(tag.startswith('#') and tag[1].isupper() for tag in tech_tags): # Перевіряємо, чи вже є тег рівня
-        if 'senior' in title or 'lead' in title:
+    # 5. Додаткове тегування РІВНЯ з title
+    if not any(tag.startswith('#') and tag[1].isupper() for tag in tech_tags):
+        if 'senior' in title_for_tagging or 'lead' in title_for_tagging:
              tech_tags.add("#Senior")
-        elif 'junior' in title or 'trainee' in title:
+        elif 'junior' in title_for_tagging or 'trainee' in title_for_tagging:
              tech_tags.add("#Junior")
 
 

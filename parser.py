@@ -1,5 +1,5 @@
 from pymongo import MongoClient
-from tagging_config import generate_tags, clean_html 
+from tagging_config import generate_tags, clean_html_for_display
 from datetime import datetime, UTC # <<< ІМПОРТУЄМО UTC
 from typing import Dict, List
 import requests
@@ -28,7 +28,8 @@ def save_vacancy(raw_vacancy_data: Dict):
     """Очищає, тегує та зберігає вакансію в MongoDB."""
     
     vacancy_id = raw_vacancy_data.get('id')
-    
+    raw_description = raw_vacancy_data.get('description', '') # Оригінальний опис з HTML
+
     # URL формуємо на основі ID компанії (notebookId) та вакансії (id)
     source_url = f"https://robota.ua/company/{raw_vacancy_data['notebookId']}/vacancy/{vacancy_id}"
 
@@ -41,12 +42,15 @@ def save_vacancy(raw_vacancy_data: Dict):
         'salary_min': raw_vacancy_data.get('salary', 0), 
         'salary_max': raw_vacancy_data.get('salary', 0), 
         'city': raw_vacancy_data.get('vacancyAddress', 'N/A'),
-        'full_description': clean_html(raw_vacancy_data.get('description', '')),
+        
+        # <<< ВИПРАВЛЕНО: ЗБЕРІГАЄМО ТЕКСТ ДЛЯ ВІДОБРАЖЕННЯ >>>
+        'full_description': clean_html_for_display(raw_description), 
+        
         'date_published': raw_vacancy_data.get('date'),
-        'date_parsed': datetime.now(UTC), # <<< ВИПРАВЛЕНО DEPRECATION WARNING
+        'date_parsed': datetime.now(UTC), 
     }
     
-    # 2. Генерація тегів
+    # 2. Генерація тегів (логіка тегування тепер використовує внутрішню очистку для NLP)
     tags = generate_tags(raw_vacancy_data)
     processed_data.update(tags)
     
