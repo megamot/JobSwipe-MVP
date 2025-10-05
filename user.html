@@ -19,10 +19,20 @@
 <body>
     <a href="index.html" class="back-link">← Назад до свайпу</a>
     <h1>Обрані вакансії</h1>
+    <div id="tags-section" style="margin-bottom: 24px; background: #e3f2fd; padding: 12px 16px; border-radius: 8px;">
+        <h3 style="margin-top:0;">Ваші теги:</h3>
+        <div id="tags-list"></div>
+        <button onclick="saveTags()" style="margin-top:8px; background:#00838f; color:#fff; border:none; border-radius:5px; padding:6px 16px; cursor:pointer;">Зберегти теги</button>
+        <span id="tags-msg" style="color:green; margin-left:10px;"></span>
+    </div>
     <div id="vacancy-list">
         <p>Завантаження...</p>
     </div>
     <script>
+        // --- Заборонити доступ до кабінету незалогіненим ---
+        if (!getUserId()) {
+            window.location.href = 'index.html';
+        }
         const API_URL = 'http://127.0.0.1:5000/api/user/liked';
         let userId = null;
         function getUserId() {
@@ -40,11 +50,73 @@
                     <div class="card-title">${v.title}</div>
                     <div class="card-company">${v.company_name} · ${v.city}</div>
                     <div class="card-tags">${(v.tags_tech||[]).concat(v.tags_company||[]).map(tag => `<span class='tag'>${tag}</span>`).join('')}</div>
-                    <a href="details.html?id=${v.id_source}" style="color:#00838f;">Детальніше →</a>
+                    <a href="details.html?id=${v.id_source}" style="color:#00838f;">Детальніше →</a><br>
+                    <button onclick="removeVacancy('${v.id_source}')" style="margin-top:8px;background:#ffebee;color:#c62828;border:none;padding:6px 12px;border-radius:6px;cursor:pointer;">Видалити</button>
                 </div>`;
             });
             html += '</div>';
             document.getElementById('vacancy-list').innerHTML = html;
+        }
+
+        function removeVacancy(id_source) {
+            const userId = getUserId();
+            if (!userId) return alert('Спочатку увійдіть у систему.');
+            fetch('http://127.0.0.1:5000/api/user/remove-liked', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ user_id: userId, id_source })
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    fetchLiked();
+                } else {
+                    alert('Помилка при видаленні: ' + (data.error || data.message));
+                }
+            })
+            .catch(() => alert('Помилка мережі.'));
+        }
+
+        // --- ТЕГИ ---
+        const ALL_TAGS = [
+            '#Frontend','#Backend','#QA_Testing','#Data','#Marketing','#Design','#Product','#Support_CS','#Legal_Finance','#HR_Admin','#SEO','#AI_ML'
+        ];
+        let selectedTags = [];
+        function renderTags() {
+            const tagsList = document.getElementById('tags-list');
+            tagsList.innerHTML = '';
+            ALL_TAGS.forEach(tag => {
+                const checked = selectedTags.includes(tag) ? 'checked' : '';
+                const el = document.createElement('label');
+                el.style.marginRight = '10px';
+                el.innerHTML = `<input type='checkbox' value='${tag}' onchange='onTagChange(this)' ${checked}/> ${tag}`;
+                tagsList.appendChild(el);
+            });
+        }
+        function onTagChange(checkbox) {
+            if (checkbox.checked && !selectedTags.includes(checkbox.value)) selectedTags.push(checkbox.value);
+            else if (!checkbox.checked) selectedTags = selectedTags.filter(t => t !== checkbox.value);
+        }
+        function saveTags() {
+            const userId = getUserId();
+            fetch('http://127.0.0.1:5000/api/user/tags', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ user_id: userId, tags: selectedTags })
+            })
+            .then(() => {
+                document.getElementById('tags-msg').textContent = 'Збережено!';
+                setTimeout(()=>{document.getElementById('tags-msg').textContent='';}, 1500);
+            });
+        }
+        function fetchUserTags() {
+            const userId = getUserId();
+            fetch('http://127.0.0.1:5000/api/user/profile?user_id=' + encodeURIComponent(userId))
+                .then(r => r.json())
+                .then(data => {
+                    selectedTags = data.selected_tags || [];
+                    renderTags();
+                });
         }
         function fetchLiked() {
             userId = getUserId();
@@ -58,6 +130,10 @@
         }
         // Зберігаємо userId після логіну/реєстрації (для інтеграції з index.html)
         window.addEventListener('DOMContentLoaded', fetchLiked);
+        window.addEventListener('DOMContentLoaded', () => {
+            fetchLiked();
+            fetchUserTags();
+        });
     </script>
 </body>
 </html>

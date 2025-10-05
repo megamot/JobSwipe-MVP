@@ -33,8 +33,9 @@
     </head>
 <body>
 
-    <div style="position: absolute; top: 10px; left: 10px;">
-        <a href="user.html" style="font-size: 1.1em; color: #00838f; text-decoration: underline;">Кабінет користувача</a>
+    <div style="position: absolute; top: 10px; left: 10px; display: flex; gap: 20px;">
+    <a href="user.html" id="cabinet-link" style="font-size: 1.1em; color: #00838f; text-decoration: underline;">Кабінет користувача</a>
+        <button id="logout-btn" style="font-size:1em; color:#fff; background:#f44336; border:none; border-radius:5px; padding:5px 15px; display:none; cursor:pointer;">Вихід</button>
     </div>
 
     <div id="auth-section">
@@ -74,27 +75,27 @@
 
        // 1. ФУНКЦІЯ СТВОРЕННЯ КАРТКИ
         function createCard(vacancy) {
-        const card = document.createElement('div');
-        card.className = 'job-card';
-        card.dataset.id = vacancy.id_source;
-
-        // Додаємо обробник кліку для показу повного опису
-        card.onclick = () => {
-        // Перехід на нову сторінку, передаючи ID у параметрі
-        window.location.href = `details.html?id=${vacancy.id_source}`;
-    }; 
-        // Відображаємо лише заголовок та компанію
-    card.innerHTML = `
-        <div class="card-header">
-            <div class="card-title">${vacancy.title}</div>
-            <div class="card-company">${vacancy.company_name} · ${vacancy.city}</div>
-        </div>
-        <div class="card-tags">
-            ${(vacancy.tags_tech || []).concat(vacancy.tags_company || []).map(tag => `<span class="tag">${tag}</span>`).slice(0, 5).join('')}
-        </div>
-    `;
-    return card;
-}
+            const card = document.createElement('div');
+            card.className = 'job-card';
+            card.dataset.id = vacancy.id_source;
+            // Короткий опис — перше речення з shortDescription
+            let shortDesc = '';
+            if (vacancy.shortDescription) {
+                shortDesc = vacancy.shortDescription.split(/[.!?]/)[0] + '.';
+            }
+            card.innerHTML = `
+                <div class="card-header">
+                    <div class="card-title">${vacancy.title}</div>
+                    <div class="card-company">${vacancy.company_name} · ${vacancy.city}</div>
+                </div>
+                <div class="card-tags">
+                    ${(vacancy.tags_tech || []).concat(vacancy.tags_company || []).map(tag => `<span class="tag">${tag}</span>`).slice(0, 5).join('')}
+                </div>
+                <div class="card-desc" style="margin:10px 0 15px 0; color:#444; font-size:1em; min-height:2em;">${shortDesc}</div>
+                <button class="details-btn" style="margin-top:auto; background:#00838f; color:#fff; border:none; border-radius:5px; padding:8px 16px; font-size:1em; cursor:pointer;" onclick="event.stopPropagation(); window.location.href='details.html?id=${vacancy.id_source}'">Детальніше</button>
+            `;
+            return card;
+        }
 
         // 2. ФУНКЦІЯ ОБРОБКИ СВАЙПУ (ІМІТАЦІЯ)
         function simulateSwipe(type) {
@@ -125,9 +126,16 @@
                     : 'translateX(-1000px) rotate(-30deg)';
                 topCard.style.opacity = 0;
                 setTimeout(() => {
+                    // Видаляємо верхню картку та оновлюємо DOM і currentVacancies
                     topCard.remove();
-                    currentVacancies.shift();
-                    if (currentVacancies.length < 3) {
+                    currentVacancies = currentVacancies.filter(v => v.id_source !== vacancyId);
+                    // Перемальовуємо картки, щоб верхня була актуальною
+                    cardContainer.innerHTML = '';
+                    currentVacancies.slice().reverse().forEach(vacancy => {
+                        cardContainer.appendChild(createCard(vacancy));
+                    });
+                    // Якщо карток мало — підвантажити ще
+                    if (currentVacancies.length < 2) {
                         fetchVacancies();
                     }
                 }, 500);
@@ -235,25 +243,61 @@
         // --- Завантаження тегів користувача при вході ---
         function fetchUserTags() {
             let tags = JSON.parse(localStorage.getItem('selectedTags')) || [];
+            function afterTagsLoaded() {
+                if (!selectedTags || selectedTags.length === 0) {
+                    // Show tag selection UI, hide swipe UI
+                    document.getElementById('tags-section').style.display = '';
+                    cardContainer.style.display = 'none';
+                    document.getElementById('swipe-controls').style.display = 'none';
+                    showTags();
+                } else {
+                    // Hide tag selection, show swipe UI
+                    document.getElementById('tags-section').style.display = 'none';
+                    cardContainer.style.display = '';
+                    document.getElementById('swipe-controls').style.display = '';
+                    fetchVacancies();
+                }
+            }
             if (tags.length) {
                 selectedTags = tags;
-                showTags();
+                afterTagsLoaded();
             } else {
                 fetch('http://127.0.0.1:5000/api/user/profile?user_id=' + encodeURIComponent(userId))
                     .then(r => r.json())
                     .then(data => {
                         selectedTags = data.selected_tags || [];
                         localStorage.setItem('selectedTags', JSON.stringify(selectedTags));
-                        showTags();
+                        afterTagsLoaded();
                     });
             }
         }
 
         // --- Автоматичний вхід, якщо userId вже є ---
+        // --- Вихід (logout) ---
+        document.getElementById('logout-btn').onclick = function() {
+            userId = null;
+            selectedTags = [];
+            localStorage.removeItem('userId');
+            localStorage.removeItem('selectedTags');
+            document.getElementById('auth-section').style.display = '';
+            document.getElementById('tags-section').style.display = 'none';
+            cardContainer.style.display = 'none';
+            document.getElementById('swipe-controls').style.display = 'none';
+            document.getElementById('logout-btn').style.display = 'none';
+        };
+
         window.addEventListener('DOMContentLoaded', () => {
+        // --- Заборонити перехід у кабінет незалогіненим ---
+        document.getElementById('cabinet-link').addEventListener('click', function(e) {
+            if (!localStorage.getItem('userId')) {
+                e.preventDefault();
+                alert('Спочатку увійдіть у систему!');
+            }
+        });
             userId = localStorage.getItem('userId');
             if (userId) {
                 document.getElementById('auth-section').style.display = 'none';
+                document.getElementById('logout-btn').style.display = '';
                 fetchUserTags();
             }
         });

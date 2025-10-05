@@ -3,6 +3,19 @@ from pymongo import MongoClient
 import random
 from bson.json_util import dumps
 from bson import ObjectId
+from flask_cors import CORS
+
+# --- НАЛАШТУВАННЯ ---
+app = Flask(__name__)
+CORS(app)
+
+MONGO_URI = "mongodb://user:password@localhost:27017/"
+client = MongoClient(MONGO_URI)
+db = client.jobswipe_db
+vacancies_collection = db.vacancies
+companies_collection = db.companies
+users_collection = db.users
+from bson import ObjectId
 
 # --- НАЛАШТУВАННЯ ---
 app = Flask(__name__)
@@ -30,26 +43,8 @@ def get_user_profile():
     user = users_collection.find_one(query)
     if not user:
         return jsonify({'error': 'User not found'}), 404
+
     return jsonify({'selected_tags': user.get('selected_tags', [])}), 200
-from flask import Flask, jsonify, request
-from pymongo import MongoClient
-import random
-from bson.json_util import dumps
-
-# --- НАЛАШТУВАННЯ ---
-app = Flask(__name__)
-# Дозволяємо CORS для розробки (ВАЖЛИВО!)
-from flask_cors import CORS
-CORS(app) 
-
-MONGO_URI = "mongodb://user:password@localhost:27017/"
-client = MongoClient(MONGO_URI)
-db = client.jobswipe_db
-vacancies_collection = db.vacancies
-companies_collection = db.companies
-users_collection = db.users
-
-# --- API МАРШРУТИ ---
 
 
 # --- ВАКАНСІЇ: фільтрація за тегами користувача ---
