@@ -169,8 +169,9 @@
             .then(data => {
                 if (data.user_id) {
                     userId = data.user_id;
+                    localStorage.setItem('userId', userId);
                     document.getElementById('auth-section').style.display = 'none';
-                    showTags();
+                    fetchUserTags();
                 } else {
                     document.getElementById('auth-msg').textContent = data.error || 'Помилка реєстрації';
                 }
@@ -188,8 +189,9 @@
             .then(data => {
                 if (data.user_id) {
                     userId = data.user_id;
+                    localStorage.setItem('userId', userId);
                     document.getElementById('auth-section').style.display = 'none';
-                    showTags();
+                    fetchUserTags();
                 } else {
                     document.getElementById('auth-msg').textContent = data.error || 'Помилка входу';
                 }
@@ -206,13 +208,14 @@
             tagsList.innerHTML = '';
             ALL_TAGS.forEach(tag => {
                 const el = document.createElement('label');
-                el.innerHTML = `<input type='checkbox' value='${tag}' onchange='onTagChange(this)'/> ${tag}`;
+                const checked = selectedTags.includes(tag) ? 'checked' : '';
+                el.innerHTML = `<input type='checkbox' value='${tag}' onchange='onTagChange(this)' ${checked}/> ${tag}`;
                 tagsList.appendChild(el);
             });
         }
         function onTagChange(checkbox) {
-            if (checkbox.checked) selectedTags.push(checkbox.value);
-            else selectedTags = selectedTags.filter(t => t !== checkbox.value);
+            if (checkbox.checked && !selectedTags.includes(checkbox.value)) selectedTags.push(checkbox.value);
+            else if (!checkbox.checked) selectedTags = selectedTags.filter(t => t !== checkbox.value);
         }
         function saveTags() {
             fetch(TAGS_URL, {
@@ -221,12 +224,45 @@
                 body: JSON.stringify({ user_id: userId, tags: selectedTags })
             })
             .then(() => {
+                localStorage.setItem('selectedTags', JSON.stringify(selectedTags));
                 document.getElementById('tags-section').style.display = 'none';
                 cardContainer.style.display = '';
                 document.getElementById('swipe-controls').style.display = '';
                 fetchVacancies();
             });
         }
+
+        // --- Завантаження тегів користувача при вході ---
+        function fetchUserTags() {
+            // Для MVP: пробуємо зчитати з localStorage, якщо є, інакше з БД
+            let tags = [];
+            try {
+                tags = JSON.parse(localStorage.getItem('selectedTags')) || [];
+            } catch {}
+            if (tags.length) {
+                selectedTags = tags;
+                showTags();
+            } else {
+                // Запит до бекенду (можна додати окремий endpoint, але для MVP — через /api/user/liked)
+                fetch('http://127.0.0.1:5000/api/user/liked?user_id=' + encodeURIComponent(userId))
+                    .then(r => r.json())
+                    .then(() => {
+                        // Для простоти: якщо бекенд повертає selected_tags, використати їх
+                        // (реалізуйте окремий endpoint для отримання профілю, якщо потрібно)
+                        // selectedTags = ...
+                        showTags();
+                    });
+            }
+        }
+
+        // --- Автоматичний вхід, якщо userId вже є ---
+        window.addEventListener('DOMContentLoaded', () => {
+            userId = localStorage.getItem('userId');
+            if (userId) {
+                document.getElementById('auth-section').style.display = 'none';
+                fetchUserTags();
+            }
+        });
     </script>
 </body>
 </html>
