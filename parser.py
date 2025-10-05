@@ -1,18 +1,23 @@
+
 from pymongo import MongoClient
 from tagging_config import generate_tags, get_raw_description
-from datetime import datetime, UTC # <<< ІМПОРТУЄМО UTC
+from datetime import datetime, UTC
 from typing import Dict, List
 import requests
 import time
 
 # --- НАЛАШТУВАННЯ ---
+
 MONGO_URI = "mongodb://user:password@localhost:27017/"
 client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=5000)
 db = client.jobswipe_db
-vacancies_collection = db.vacancies 
+vacancies_collection = db.vacancies
+companies_collection = db.companies
+users_collection = db.users
 
 # URL для Robota.ua API пошуку (буде використаний для динамічного формування)
 ROBOTA_COMPANY_VACANCIES_BASE_URL = "https://api.rabota.ua/company/{companyId}/vacancies"
+ROBOTA_COMPANY_BASE_URL = "https://api.rabota.ua/company/{companyId}"
 
 # Параметри для імітації "ТОП-роботодавців" (додайте сюди ваші ID)
 COMPANY_IDS = [
@@ -65,52 +70,65 @@ def save_vacancy(raw_vacancy_data: Dict):
 
 # --- ФУНКЦІЯ ПАРСИНГУ ROBOTA.UA ---
 
+
 def fetch_and_process_jobs_robota():
-    """Виконує API-запити до Robota.ua для кожної компанії та обробляє дані."""
-    
+    """
+    1. Парсить компанії (GET /company/{id}) і зберігає в companies (upsert).
+    2. Парсить вакансії (GET /company/{id}/vacancies) і зберігає всі поля в vacancies (upsert).
+    3. Тегування — лише копія, не змінює оригінал.
+    """
     total_processed = 0
-    
     for company_id in COMPANY_IDS:
-        # 1. Формування повного URL для поточної компанії
-        company_url = ROBOTA_COMPANY_VACANCIES_BASE_URL.format(companyId=company_id)
-        
+        # --- 1. Парсинг компанії ---
+        company_url = ROBOTA_COMPANY_BASE_URL.format(companyId=company_id)
         try:
-            # 2. Виконання HTTP-запиту
-            response = requests.get(company_url, timeout=10)
-            response.raise_for_status() 
-            data = response.json()
-            
-            documents = data.get('documents', [])
-            total_vacancies = len(documents)
-
-            # <<< ВИПРАВЛЕНО: БЕЗПЕЧНЕ ОТРИМАННЯ НАЗВИ КОМПАНІЇ >>>
-            if not documents:
-                company_name = f'ID {company_id}'
-                print(f"-> Компанія {company_name}: Не знайдено активних вакансій.")
-                continue
-            
-            # Якщо вакансії є, беремо назву компанії з першого документа
-            company_name = documents[0].get('companyName', f'ID {company_id}')
-
-            # 3. Обробка та збереження
-            company_processed = 0
-            for doc in documents:
-                # Додаємо CompanyId до doc, щоб save_vacancy могла сформувати коректний source_url
-                doc['notebookId'] = company_id 
-                save_vacancy(doc)
-                total_processed += 1
-                company_processed += 1
-                
-            print(f"✅ Оброблено {company_processed} з {total_vacancies} вакансій компанії {company_name} (ID {company_id}).")
-
-            # 4. Пауза між запитами
-            time.sleep(1) 
-
-        except requests.exceptions.RequestException as e:
-            print(f"❌ Помилка запиту до Robota.ua (ID: {company_id}): {e}")
-            time.sleep(2) 
+            company_resp = requests.get(company_url, timeout=10)
+            company_resp.raise_for_status()
+            company_data = company_resp.json()
+            # Зберігаємо всі поля компанії (upsert)
+            companies_collection.update_one(
+                {'id': company_data.get('id')},
+                {'$set': company_data},
+                upsert=True
+            )
+            print(f"✅ Компанія {company_data.get('name', company_id)} збережена/оновлена.")
+        except Exception as e:
+            print(f"❌ Помилка парсингу компанії (ID: {company_id}): {e}")
             continue
 
+        # --- 2. Парсинг вакансій ---
+        vacancies_url = ROBOTA_COMPANY_VACANCIES_BASE_URL.format(companyId=company_id)
+        try:
+            response = requests.get(vacancies_url, timeout=10)
+            response.raise_for_status()
+            data = response.json()
+            documents = data.get('documents', [])
+            total_vacancies = len(documents)
+            if not documents:
+                print(f"-> Компанія ID {company_id}: Не знайдено активних вакансій.")
+                continue
+            company_name = documents[0].get('companyName', f'ID {company_id}')
+            company_processed = 0
+            for doc in documents:
+                doc['notebookId'] = company_id
+                # --- Тегування на копії ---
+                doc_copy = dict(doc)
+                tags = generate_tags(doc_copy)
+                doc_copy.update(tags)
+                # Зберігаємо всі поля з тегами (upsert)
+                vacancies_collection.update_one(
+                    {'id_source': f"robota_{doc_copy.get('id')}"},
+                    {'$set': doc_copy},
+                    upsert=True
+                )
+                total_processed += 1
+                company_processed += 1
+            print(f"✅ Оброблено {company_processed} з {total_vacancies} вакансій компанії {company_name} (ID {company_id}).")
+            time.sleep(1)
+        except Exception as e:
+            print(f"❌ Помилка парсингу вакансій (ID: {company_id}): {e}")
+            time.sleep(2)
+            continue
     print(f"\n--- ЕТАП ROBOTA.UA ЗАВЕРШЕНО. Всього оброблено {total_processed} вакансій. ---")
 
 

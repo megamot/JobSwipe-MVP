@@ -32,20 +32,45 @@
     </style>
     </head>
 <body>
-    <div class="card-container" id="card-container">
+
+    <div style="position: absolute; top: 10px; left: 10px;">
+        <a href="user.html" style="font-size: 1.1em; color: #00838f; text-decoration: underline;">Кабінет користувача</a>
+    </div>
+
+    <div id="auth-section">
+        <h2>Вхід / Реєстрація</h2>
+        <input id="username" placeholder="Username" />
+        <input id="password" type="password" placeholder="Password" />
+        <button onclick="register()">Реєстрація</button>
+        <button onclick="login()">Вхід</button>
+        <div id="auth-msg" style="color: red; margin-top: 5px;"></div>
+    </div>
+
+    <div id="tags-section" style="display:none; margin-bottom: 20px;">
+        <h3>Оберіть теги:</h3>
+        <div id="tags-list"></div>
+        <button onclick="saveTags()">Зберегти теги</button>
+    </div>
+
+    <div class="card-container" id="card-container" style="display:none;">
         <p>Завантаження вакансій...</p>
     </div>
 
-    <div class="swipe-info">
+    <div class="swipe-info" id="swipe-controls" style="display:none;">
         <button onclick="simulateSwipe('like')" style="background-color: #4CAF50; color: white; padding: 10px 20px; border: none; border-radius: 5px; margin-right: 15px;">Свайп Праворуч (👍)</button>
         <button onclick="simulateSwipe('nope')" style="background-color: #f44336; color: white; padding: 10px 20px; border: none; border-radius: 5px;">Свайп Ліворуч (👎)</button>
     </div>
 
     <script>
-        const API_URL = 'http://127.0.0.1:5000/api/vacancies';
-        const SWIPE_URL = 'http://127.0.0.1:5000/api/swipe';
-        const cardContainer = document.getElementById('card-container');
-        let currentVacancies = [];
+    const API_URL = 'http://127.0.0.1:5000/api/vacancies';
+    const SWIPE_URL = 'http://127.0.0.1:5000/api/swipe';
+    const REGISTER_URL = 'http://127.0.0.1:5000/api/register';
+    const LOGIN_URL = 'http://127.0.0.1:5000/api/login';
+    const TAGS_URL = 'http://127.0.0.1:5000/api/user/tags';
+    const cardContainer = document.getElementById('card-container');
+    let currentVacancies = [];
+    let userId = null;
+    let selectedTags = [];
 
        // 1. ФУНКЦІЯ СТВОРЕННЯ КАРТКИ
         function createCard(vacancy) {
@@ -77,83 +102,131 @@
                 alert('Вакансії закінчилися! Перезавантажте сторінку.');
                 return;
             }
-
+            if (!userId) {
+                alert('Спочатку увійдіть або зареєструйтесь!');
+                return;
+            }
             const topCard = cardContainer.querySelector('.job-card');
             const vacancyId = topCard.dataset.id;
-
-            // Надсилаємо POST-запит до бекенду
             fetch(SWIPE_URL, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
+                    user_id: userId,
                     id_source: vacancyId,
                     type: type
                 })
             })
             .then(response => response.json())
             .then(data => {
-                console.log('Swipe response:', data);
-
-                // Візуальна анімація (просто переміщуємо картку)
+                // Візуальна анімація
                 topCard.style.transform = type === 'like' 
                     ? 'translateX(1000px) rotate(30deg)' 
                     : 'translateX(-1000px) rotate(-30deg)';
                 topCard.style.opacity = 0;
-                
-                // Видаляємо картку після анімації
                 setTimeout(() => {
                     topCard.remove();
-                    currentVacancies.shift(); 
+                    currentVacancies.shift();
                     if (currentVacancies.length < 3) {
-                        fetchVacancies(); // Завантажуємо наступну порцію, якщо картки закінчуються
+                        fetchVacancies();
                     }
-                }, 500); 
-
+                }, 500);
             })
             .catch(error => {
-                console.error('Error processing swipe:', error);
                 alert('Помилка при обробці свайпу.');
             });
         }
 
         // 3. ФУНКЦІЯ ЗАВАНТАЖЕННЯ ДАНИХ З API
         function fetchVacancies() {
-            fetch(API_URL)
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error(`HTTP error! status: ${response.status}`);
-                    }
-                    return response.json();
-                })
-                .then(data => {
-                    // Парсимо JSON-рядок (оскільки dumps повертає рядок)
-                    const vacancies = data; 
-
+            if (!userId) return;
+            let url = API_URL + '?user_id=' + encodeURIComponent(userId);
+            fetch(url)
+                .then(response => response.json())
+                .then(vacancies => {
                     if (vacancies.length === 0) {
                         cardContainer.innerHTML = "<p>На жаль, нових вакансій не знайдено.</p>";
                         return;
                     }
-
-                    cardContainer.innerHTML = ''; // Очищаємо "Завантаження..."
-                    
-                    // Додаємо нові вакансії до поточного списку
-                    currentVacancies = currentVacancies.concat(vacancies); 
-                    
-                    // Відображаємо всі картки (нова картка завжди зверху)
+                    cardContainer.innerHTML = '';
+                    currentVacancies = vacancies;
                     currentVacancies.reverse().forEach(vacancy => {
                         cardContainer.appendChild(createCard(vacancy));
                     });
-                })
-                .catch(error => {
-                    console.error("Fetch Error:", error);
-                    cardContainer.innerHTML = "<p>Помилка з'єднання з API. Перевірте, чи запущений Flask-сервер.</p>";
                 });
         }
 
-        // Запуск
-        fetchVacancies();
+        // --- АВТОРИЗАЦІЯ ---
+        function register() {
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            fetch(REGISTER_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, password })
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.user_id) {
+                    userId = data.user_id;
+                    document.getElementById('auth-section').style.display = 'none';
+                    showTags();
+                } else {
+                    document.getElementById('auth-msg').textContent = data.error || 'Помилка реєстрації';
+                }
+            });
+        }
+        function login() {
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            fetch(LOGIN_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, password })
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.user_id) {
+                    userId = data.user_id;
+                    document.getElementById('auth-section').style.display = 'none';
+                    showTags();
+                } else {
+                    document.getElementById('auth-msg').textContent = data.error || 'Помилка входу';
+                }
+            });
+        }
+
+        // --- ВИБІР ТЕГІВ ---
+        const ALL_TAGS = [
+            '#Frontend','#Backend','#QA_Testing','#Data','#Marketing','#Design','#Product','#Support_CS','#Legal_Finance','#HR_Admin','#SEO','#AI_ML'
+        ];
+        function showTags() {
+            document.getElementById('tags-section').style.display = '';
+            const tagsList = document.getElementById('tags-list');
+            tagsList.innerHTML = '';
+            ALL_TAGS.forEach(tag => {
+                const el = document.createElement('label');
+                el.innerHTML = `<input type='checkbox' value='${tag}' onchange='onTagChange(this)'/> ${tag}`;
+                tagsList.appendChild(el);
+            });
+        }
+        function onTagChange(checkbox) {
+            if (checkbox.checked) selectedTags.push(checkbox.value);
+            else selectedTags = selectedTags.filter(t => t !== checkbox.value);
+        }
+        function saveTags() {
+            fetch(TAGS_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ user_id: userId, tags: selectedTags })
+            })
+            .then(() => {
+                document.getElementById('tags-section').style.display = 'none';
+                cardContainer.style.display = '';
+                document.getElementById('swipe-controls').style.display = '';
+                fetchVacancies();
+            });
+        }
     </script>
 </body>
 </html>

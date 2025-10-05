@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Кабінет користувача — Обрані вакансії</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 40px auto; padding: 20px; background-color: #f9f9f9; }
+        h1 { color: #333; margin-bottom: 5px; }
+        .vacancy-grid { display: flex; flex-wrap: wrap; gap: 20px; }
+        .vacancy-card { background: #fff; border-radius: 10px; box-shadow: 0 2px 8px #0001; padding: 18px; width: 320px; }
+        .card-title { font-size: 1.2em; font-weight: bold; margin-bottom: 5px; color: #333; }
+        .card-company { font-size: 1em; color: #555; margin-bottom: 8px; }
+        .card-tags { margin-bottom: 10px; }
+        .tag { display: inline-block; background-color: #e0f7fa; color: #00838f; border-radius: 12px; padding: 4px 8px; margin: 3px; font-size: 0.8em; }
+        .back-link { display: block; margin-bottom: 20px; text-decoration: none; color: #00838f; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <a href="index.html" class="back-link">← Назад до свайпу</a>
+    <h1>Обрані вакансії</h1>
+    <div id="vacancy-list">
+        <p>Завантаження...</p>
+    </div>
+    <script>
+        const API_URL = 'http://127.0.0.1:5000/api/user/liked';
+        let userId = null;
+        function getUserId() {
+            // Для MVP: userId зберігається в sessionStorage після логіну/реєстрації
+            return sessionStorage.getItem('userId') || localStorage.getItem('userId');
+        }
+        function renderVacancies(vacancies) {
+            if (!vacancies.length) {
+                document.getElementById('vacancy-list').innerHTML = '<p>У вас ще немає обраних вакансій.</p>';
+                return;
+            }
+            let html = '<div class="vacancy-grid">';
+            vacancies.forEach(v => {
+                html += `<div class="vacancy-card">
+                    <div class="card-title">${v.title}</div>
+                    <div class="card-company">${v.company_name} · ${v.city}</div>
+                    <div class="card-tags">${(v.tags_tech||[]).concat(v.tags_company||[]).map(tag => `<span class='tag'>${tag}</span>`).join('')}</div>
+                    <a href="details.html?id=${v.id_source}" style="color:#00838f;">Детальніше →</a>
+                </div>`;
+            });
+            html += '</div>';
+            document.getElementById('vacancy-list').innerHTML = html;
+        }
+        function fetchLiked() {
+            userId = getUserId();
+            if (!userId) {
+                document.getElementById('vacancy-list').innerHTML = '<p>Спочатку увійдіть у систему.</p>';
+                return;
+            }
+            fetch(API_URL + '?user_id=' + encodeURIComponent(userId))
+                .then(r => r.json())
+                .then(renderVacancies);
+        }
+        // Зберігаємо userId після логіну/реєстрації (для інтеграції з index.html)
+        window.addEventListener('DOMContentLoaded', fetchLiked);
+    </script>
+</body>
+</html>
