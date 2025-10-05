@@ -234,22 +234,16 @@
 
         // --- Завантаження тегів користувача при вході ---
         function fetchUserTags() {
-            // Для MVP: пробуємо зчитати з localStorage, якщо є, інакше з БД
-            let tags = [];
-            try {
-                tags = JSON.parse(localStorage.getItem('selectedTags')) || [];
-            } catch {}
+            let tags = JSON.parse(localStorage.getItem('selectedTags')) || [];
             if (tags.length) {
                 selectedTags = tags;
                 showTags();
             } else {
-                // Запит до бекенду (можна додати окремий endpoint, але для MVP — через /api/user/liked)
-                fetch('http://127.0.0.1:5000/api/user/liked?user_id=' + encodeURIComponent(userId))
+                fetch('http://127.0.0.1:5000/api/user/profile?user_id=' + encodeURIComponent(userId))
                     .then(r => r.json())
-                    .then(() => {
-                        // Для простоти: якщо бекенд повертає selected_tags, використати їх
-                        // (реалізуйте окремий endpoint для отримання профілю, якщо потрібно)
-                        // selectedTags = ...
+                    .then(data => {
+                        selectedTags = data.selected_tags || [];
+                        localStorage.setItem('selectedTags', JSON.stringify(selectedTags));
                         showTags();
                     });
             }

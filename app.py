@@ -2,6 +2,39 @@ from flask import Flask, jsonify, request
 from pymongo import MongoClient
 import random
 from bson.json_util import dumps
+from bson import ObjectId
+
+# --- НАЛАШТУВАННЯ ---
+app = Flask(__name__)
+# Дозволяємо CORS для розробки (ВАЖЛИВО!)
+from flask_cors import CORS
+CORS(app) 
+
+MONGO_URI = "mongodb://user:password@localhost:27017/"
+client = MongoClient(MONGO_URI)
+db = client.jobswipe_db
+vacancies_collection = db.vacancies
+companies_collection = db.companies
+users_collection = db.users
+
+# --- API МАРШРУТИ ---
+
+# --- USER PROFILE: get selected_tags ---
+@app.route('/api/user/profile', methods=['GET'])
+def get_user_profile():
+    user_id = request.args.get('user_id')
+    if not user_id:
+        return jsonify({'error': 'user_id required'}), 400
+    # Підтримка ObjectId та str
+    query = {'_id': ObjectId(user_id)} if ObjectId.is_valid(user_id) else {'_id': user_id}
+    user = users_collection.find_one(query)
+    if not user:
+        return jsonify({'error': 'User not found'}), 404
+    return jsonify({'selected_tags': user.get('selected_tags', [])}), 200
+from flask import Flask, jsonify, request
+from pymongo import MongoClient
+import random
+from bson.json_util import dumps
 
 # --- НАЛАШТУВАННЯ ---
 app = Flask(__name__)
@@ -28,7 +61,8 @@ def get_vacancies():
     user_id = request.args.get('user_id')
     try:
         if user_id:
-            user = users_collection.find_one({'_id': user_id})
+            query = {'_id': ObjectId(user_id)} if ObjectId.is_valid(user_id) else {'_id': user_id}
+            user = users_collection.find_one(query)
             if not user:
                 return jsonify({'error': 'User not found'}), 404
             user_tags = user.get('selected_tags', [])
@@ -101,18 +135,19 @@ def process_swipe():
     swipe_type = data.get('type')
     if not user_id or not vacancy_id or swipe_type not in ['like', 'nope']:
         return jsonify({'error': 'Invalid input'}), 400
-    user = users_collection.find_one({'_id': user_id})
+    query = {'_id': ObjectId(user_id)} if ObjectId.is_valid(user_id) else {'_id': user_id}
+    user = users_collection.find_one(query)
     if not user:
         return jsonify({'error': 'User not found'}), 404
     if swipe_type == 'like':
         users_collection.update_one(
-            {'_id': user_id},
+            query,
             {'$addToSet': {'liked_vacancies': vacancy_id}}
         )
         response_msg = "Vacancy liked!"
     else:
         users_collection.update_one(
-            {'_id': user_id},
+            query,
             {'$addToSet': {'rejected_vacancies': vacancy_id}}
         )
         response_msg = "Vacancy rejected."
@@ -160,7 +195,8 @@ def set_user_tags():
     tags = data.get('tags', [])
     if not user_id:
         return jsonify({'error': 'user_id required'}), 400
-    users_collection.update_one({'_id': user_id}, {'$set': {'selected_tags': tags}})
+    query = {'_id': ObjectId(user_id)} if ObjectId.is_valid(user_id) else {'_id': user_id}
+    users_collection.update_one(query, {'$set': {'selected_tags': tags}})
     return jsonify({'status': 'success'}), 200
 
 # --- USER CABINET: liked vacancies ---
@@ -169,7 +205,8 @@ def get_liked_vacancies():
     user_id = request.args.get('user_id')
     if not user_id:
         return jsonify({'error': 'user_id required'}), 400
-    user = users_collection.find_one({'_id': user_id})
+    query = {'_id': ObjectId(user_id)} if ObjectId.is_valid(user_id) else {'_id': user_id}
+    user = users_collection.find_one(query)
     if not user:
         return jsonify({'error': 'User not found'}), 404
     liked_ids = user.get('liked_vacancies', [])
