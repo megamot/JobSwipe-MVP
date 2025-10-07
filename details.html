@@ -59,24 +59,54 @@
 
         // Функція рендерингу деталей
         function renderDetails(vacancy) {
-            document.getElementById('page-title').textContent = `${vacancy.title} — ${vacancy.company_name}`;
+            // Підготовка даних
+            const title = vacancy.name || vacancy.title || 'Назва не вказана';
+            const company = vacancy.companyName || vacancy.company_name || 'Компанія';
             
-            const allTags = (vacancy.tags_tech || []).concat(vacancy.tags_company || []);
+            // Форматування адреси
+            let location = vacancy.cityId === 1 ? 'Київ' : (vacancy.city || 'Місто не вказано');
+            if (vacancy.vacancyAddress) {
+                location += `, ${vacancy.vacancyAddress}`;
+            }
+            
+            // Оновлення заголовка сторінки
+            document.getElementById('page-title').textContent = `${title} — ${company}`;
+            
+            // Підготовка тегів
+            const allTags = [...new Set((vacancy.tags_tech || []).concat(vacancy.tags_company || []))]
+                .filter(tag => tag && tag.trim());
             const tagsHtml = allTags.map(tag => `<span class="tag">${tag}</span>`).join('');
 
-            // Використовуємо description, оскільки ви відправили його як очищений текст
+            // Підготовка опису
+            let descriptionHtml = '';
+            if (vacancy.description || vacancy.full_description) {
+                descriptionHtml = vacancy.description || vacancy.full_description;
+            } else if (vacancy.shortDescription) {
+                const tempDiv = document.createElement('div');
+                tempDiv.innerHTML = vacancy.shortDescription;
+                descriptionHtml = tempDiv.textContent;
+            } else {
+                descriptionHtml = 'Опис вакансії відсутній';
+            }
+
+            // Рендеринг контенту
             detailsContainer.innerHTML = `
-                <h1>${vacancy.title}</h1>
-                <div class="company-info">${vacancy.company_name} · ${vacancy.city}</div>
+                <h1>${title}</h1>
+                <div class="company-info">${company} · ${location}</div>
                 
                 <div class="tag-list">
                     ${tagsHtml}
                 </div>
 
                 <div class="full-description" id="description-content">
-                    </div>
+                    ${descriptionHtml}
+                </div>
 
-                <p style="margin-top: 30px;"><a href="${vacancy.source_url}" target="_blank">Перейти до оригінальної вакансії на Robota.ua →</a></p>
+                <p style="margin-top: 30px;">
+                    <a href="${vacancy.source_url}" target="_blank" style="color: #00838f; text-decoration: none;">
+                        Перейти до оригінальної вакансії на Robota.ua →
+                    </a>
+                </p>
             `;
             document.getElementById('description-content').innerHTML = vacancy.full_description || 'Опис вакансії недоступний.';
         

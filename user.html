@@ -40,16 +40,32 @@
             return sessionStorage.getItem('userId') || localStorage.getItem('userId');
         }
         function renderVacancies(vacancies) {
+            const vacancyList = document.getElementById('vacancy-list');
+            if (!Array.isArray(vacancies)) {
+                vacancyList.innerHTML = '<p style="color: #d32f2f;">Помилка завантаження даних</p>';
+                return;
+            }
             if (!vacancies.length) {
-                document.getElementById('vacancy-list').innerHTML = '<p>У вас ще немає обраних вакансій.</p>';
+                vacancyList.innerHTML = '<p>У вас ще немає обраних вакансій.<br>Спробуйте додати вакансії у свайп-режимі.</p>';
                 return;
             }
             let html = '<div class="vacancy-grid">';
             vacancies.forEach(v => {
+                // Обробка міста
+                let cityDisplay = v.cityId === 1 ? 'Київ' : v.city || 'Місто не вказано';
+                if (v.vacancyAddress) {
+                    cityDisplay += `, ${v.vacancyAddress}`;
+                }
+
+                // Фільтруємо унікальні теги
+                const tags = [...new Set((v.tags_tech || []).concat(v.tags_company || []))]
+                    .filter(tag => tag && tag.trim())
+                    .slice(0, 5);
+
                 html += `<div class="vacancy-card">
-                    <div class="card-title">${v.title}</div>
-                    <div class="card-company">${v.company_name} · ${v.city}</div>
-                    <div class="card-tags">${(v.tags_tech||[]).concat(v.tags_company||[]).map(tag => `<span class='tag'>${tag}</span>`).join('')}</div>
+                    <div class="card-title">${v.name || v.title || 'Назва не вказана'}</div>
+                    <div class="card-company">${v.companyName || v.company_name || 'Компанія'} · ${cityDisplay}</div>
+                    <div class="card-tags">${tags.map(tag => `<span class='tag'>${tag}</span>`).join('')}</div>
                     <a href="details.html?id=${v.id_source}" style="color:#00838f;">Детальніше →</a><br>
                     <button onclick="removeVacancy('${v.id_source}')" style="margin-top:8px;background:#ffebee;color:#c62828;border:none;padding:6px 12px;border-radius:6px;cursor:pointer;">Видалити</button>
                 </div>`;

@@ -9,26 +9,20 @@ from flask_cors import CORS
 app = Flask(__name__)
 CORS(app)
 
-MONGO_URI = "mongodb://user:password@localhost:27017/"
-client = MongoClient(MONGO_URI)
-db = client.jobswipe_db
-vacancies_collection = db.vacancies
-companies_collection = db.companies
-users_collection = db.users
-from bson import ObjectId
-
-# --- НАЛАШТУВАННЯ ---
-app = Flask(__name__)
-# Дозволяємо CORS для розробки (ВАЖЛИВО!)
-from flask_cors import CORS
-CORS(app) 
-
-MONGO_URI = "mongodb://user:password@localhost:27017/"
-client = MongoClient(MONGO_URI)
-db = client.jobswipe_db
-vacancies_collection = db.vacancies
-companies_collection = db.companies
-users_collection = db.users
+# MongoDB connection with error handling
+try:
+    MONGO_URI = "mongodb://user:password@localhost:27017/"
+    client = MongoClient(MONGO_URI)
+    # Test connection
+    client.server_info()
+    db = client.jobswipe_db
+    vacancies_collection = db.vacancies
+    companies_collection = db.companies
+    users_collection = db.users
+    print("Successfully connected to MongoDB")
+except Exception as e:
+    print(f"Error connecting to MongoDB: {e}")
+    raise
 
 # --- API МАРШРУТИ ---
 
@@ -48,7 +42,59 @@ def get_user_profile():
 
 
 # --- ВАКАНСІЇ: фільтрація за тегами користувача ---
+# MongoDB retry decorator
+from functools import wraps
+from pymongo.errors import AutoReconnect
+import time
+
+def retry_mongo(max_retries=3, delay=0.5):
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            retries = 0
+            while retries < max_retries:
+                try:
+                    return func(*args, **kwargs)
+                except AutoReconnect:
+                    retries += 1
+                    if retries == max_retries:
+                        raise
+                    time.sleep(delay)
+            return func(*args, **kwargs)
+        return wrapper
+    return decorator
+
+@app.route('/api/user/remove-liked', methods=['POST'])
+@retry_mongo()
+def remove_liked_vacancy():
+    try:
+        data = request.get_json()
+        user_id = data.get('user_id')
+        id_source = data.get('id_source')
+        if not user_id or not id_source:
+            return jsonify({'status': 'error', 'message': 'user_id and id_source required'}), 400
+            
+        # If user_id is not ObjectId, use as is
+        query = {'_id': ObjectId(user_id)} if ObjectId.is_valid(user_id) else {'_id': user_id}
+        
+        result = users_collection.update_one(
+            query,
+            {
+                '$pull': {'liked_vacancies': id_source},
+                '$addToSet': {'rejected_vacancies': id_source}
+            }
+        )
+        
+        if result.matched_count == 0:
+            return jsonify({'status': 'error', 'message': 'User not found'}), 404
+            
+        return jsonify({'status': 'success'}), 200
+        
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
 @app.route('/api/vacancies', methods=['GET'])
+@retry_mongo()
 def get_vacancies():
     """
     Повертає вакансії, релевантні тегам користувача (якщо передано user_id), інакше випадкові.
@@ -75,12 +121,18 @@ def get_vacancies():
         for v in vacancies_cursor:
             vacancies_list.append({
                 'id_source': v.get('id_source'),
-                'title': v.get('title'),
-                'company_name': v.get('company_name'),
-                'city': v.get('city'),
-                'full_description': v.get('full_description'),
+                'title': v.get('name'),  # основна назва
+                'name': v.get('name'),   # альтернативна назва
+                'company_name': v.get('companyName'),
+                'companyName': v.get('companyName'),  # обидва варіанти
+                'city': 'Київ' if v.get('cityId') == 1 else v.get('city', 'Місто не вказано'),
+                'cityId': v.get('cityId'),
+                'vacancyAddress': v.get('vacancyAddress'),
+                'shortDescription': v.get('shortDescription'),
+                'full_description': v.get('description'),
+                'description': v.get('description'),
                 'tags_tech': v.get('tags_tech', []),
-                'tags_company': v.get('tags_company', []),
+                'tags_company': v.get('tags_company', [])
             })
         return jsonify(vacancies_list), 200
     except Exception as e:
@@ -101,13 +153,19 @@ def get_single_vacancy(id_source):
         # 2. Очищаємо ObjectId (вибираємо потрібні поля) та формуємо об'єкт для відправки
         response_data = {
             'id_source': vacancy.get('id_source'),
-            'title': vacancy.get('title'),
-            'company_name': vacancy.get('company_name'),
-            'city': vacancy.get('city'),
-            'full_description': vacancy.get('full_description'), # Повний опис
+            'title': vacancy.get('name'),  # використовуємо правильне поле
+            'name': vacancy.get('name'),
+            'company_name': vacancy.get('companyName'),
+            'companyName': vacancy.get('companyName'),
+            'city': 'Київ' if vacancy.get('cityId') == 1 else vacancy.get('city', 'Місто не вказано'),
+            'cityId': vacancy.get('cityId'),
+            'vacancyAddress': vacancy.get('vacancyAddress'),
+            'full_description': vacancy.get('description'),  # правильне поле опису
+            'description': vacancy.get('description'),
+            'shortDescription': vacancy.get('shortDescription'),
             'tags_tech': vacancy.get('tags_tech', []),
             'tags_company': vacancy.get('tags_company', []),
-            'source_url': vacancy.get('source_url') # Оригінальне посилання на Robota.ua
+            'source_url': f'https://robota.ua/company/{vacancy.get("id", "")}/vacancy{vacancy.get("id_source", "").replace("robota_", "")}'
         }
         
         return jsonify(response_data), 200
@@ -210,9 +268,9 @@ def get_liked_vacancies():
     for v in vacancies:
         result.append({
             'id_source': v.get('id_source'),
-            'title': v.get('title'),
-            'company_name': v.get('company_name'),
-            'city': v.get('city'),
+            'title': v.get('name'),
+            'company_name': v.get('companyName'),
+            'city': v.get('cityId'),
             'tags_tech': v.get('tags_tech', []),
             'tags_company': v.get('tags_company', []),
         })

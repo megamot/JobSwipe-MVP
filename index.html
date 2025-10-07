@@ -78,20 +78,42 @@
             const card = document.createElement('div');
             card.className = 'job-card';
             card.dataset.id = vacancy.id_source;
-            // Короткий опис — перше речення з shortDescription
+
+            // Обробка міста
+            let cityDisplay = vacancy.cityId === 1 ? 'Київ' : vacancy.city || 'Місто не вказано';
+            if (vacancy.vacancyAddress) {
+                cityDisplay += `, ${vacancy.vacancyAddress}`;
+            }
+
+            // Обробка опису
             let shortDesc = '';
             if (vacancy.shortDescription) {
-                shortDesc = vacancy.shortDescription.split(/[.!?]/)[0] + '.';
+                // Видаляємо HTML теги та зайві пробіли
+                const tempDiv = document.createElement('div');
+                tempDiv.innerHTML = vacancy.shortDescription;
+                const cleanText = tempDiv.textContent.trim();
+                // Беремо перше речення, обмежуємо довжину
+                shortDesc = cleanText.split(/[.!?]/)[0];
+                if (shortDesc.length > 150) {
+                    shortDesc = shortDesc.substring(0, 150) + '...';
+                }
+                shortDesc += '.';
             }
+
+            // Фільтруємо унікальні теги
+            const tags = [...new Set((vacancy.tags_tech || []).concat(vacancy.tags_company || []))]
+                .filter(tag => tag && tag.trim())
+                .slice(0, 5);
+
             card.innerHTML = `
                 <div class="card-header">
-                    <div class="card-title">${vacancy.title}</div>
-                    <div class="card-company">${vacancy.company_name} · ${vacancy.city}</div>
+                    <div class="card-title">${vacancy.name || vacancy.title || 'Назва не вказана'}</div>
+                    <div class="card-company">${vacancy.companyName || vacancy.company_name || 'Компанія'} · ${cityDisplay}</div>
                 </div>
                 <div class="card-tags">
-                    ${(vacancy.tags_tech || []).concat(vacancy.tags_company || []).map(tag => `<span class="tag">${tag}</span>`).slice(0, 5).join('')}
+                    ${tags.map(tag => `<span class="tag">${tag}</span>`).join('')}
                 </div>
-                <div class="card-desc" style="margin:10px 0 15px 0; color:#444; font-size:1em; min-height:2em;">${shortDesc}</div>
+                <div class="card-desc" style="margin:10px 0 15px 0; color:#444; font-size:1em; min-height:2em;">${shortDesc || 'Опис відсутній'}</div>
                 <button class="details-btn" style="margin-top:auto; background:#00838f; color:#fff; border:none; border-radius:5px; padding:8px 16px; font-size:1em; cursor:pointer;" onclick="event.stopPropagation(); window.location.href='details.html?id=${vacancy.id_source}'">Детальніше</button>
             `;
             return card;
@@ -148,17 +170,22 @@
         // 3. ФУНКЦІЯ ЗАВАНТАЖЕННЯ ДАНИХ З API
         function fetchVacancies() {
             if (!userId) return;
+            cardContainer.innerHTML = '<p style="text-align:center;"><i>Завантаження вакансій...</i></p>';
             let url = API_URL + '?user_id=' + encodeURIComponent(userId);
             fetch(url)
                 .then(response => response.json())
                 .then(vacancies => {
                     if (vacancies.length === 0) {
-                        cardContainer.innerHTML = "<p>На жаль, нових вакансій не знайдено.</p>";
+                        cardContainer.innerHTML = "<p style='text-align:center;'>На жаль, нових вакансій не знайдено.<br>Спробуйте змінити теги.</p>";
                         return;
                     }
                     cardContainer.innerHTML = '';
-                    currentVacancies = vacancies;
-                    currentVacancies.reverse().forEach(vacancy => {
+                    // Оновлюємо currentVacancies, додаючи нові вакансії до існуючих
+                    const existingIds = currentVacancies.map(v => v.id_source);
+                    const newVacancies = vacancies.filter(v => !existingIds.includes(v.id_source));
+                    currentVacancies = [...currentVacancies, ...newVacancies];
+                    // Показуємо останні 3 картки
+                    currentVacancies.slice(-3).reverse().forEach(vacancy => {
                         cardContainer.appendChild(createCard(vacancy));
                     });
                 });
