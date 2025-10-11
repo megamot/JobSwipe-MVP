@@ -208,9 +208,10 @@
                     ${descriptionHtml}
                 </div>
 
-                ${vacancy.source_url ? `
+                ${vacancy.source_url && vacancy.source_url.startsWith('https://robota.ua/') ? `
                     <a href="${vacancy.source_url}" 
-                       target="_blank" 
+                       target="_blank"
+                       rel="noopener noreferrer"
                        class="source-link">
                         Переглянути на Robota.ua →
                     </a>

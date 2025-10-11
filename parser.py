@@ -1,4 +1,3 @@
-
 from pymongo import MongoClient
 from tagging_config import generate_tags, get_raw_description
 from datetime import datetime, UTC
@@ -15,85 +14,106 @@ vacancies_collection = db.vacancies
 companies_collection = db.companies
 users_collection = db.users
 
-# URL для Robota.ua API пошуку (буде використаний для динамічного формування)
+# URL для Robota.ua API
 ROBOTA_COMPANY_VACANCIES_BASE_URL = "https://api.rabota.ua/company/{companyId}/vacancies"
 ROBOTA_COMPANY_BASE_URL = "https://api.rabota.ua/company/{companyId}"
 
-# Параметри для імітації "ТОП-роботодавців" (додайте сюди ваші ID)
-COMPANY_IDS = [
-    6627493,  # SKELAR
-    720,      # Приклад компанії з вашого JS (якщо вона не має вакансій, це перевірить виправлення)
-    # Додайте інші ID компаній тут
-]
-# VACANCIES_PER_PAGE = 50 # Не потрібен для цього типу API
+def get_company_ids() -> List[int]:
+    """Отримує список всіх ID компаній з колекції company_ids."""
+    try:
+        companies = db.company_ids.find({}, {'company_id': 1, '_id': 0})
+        return [company['company_id'] for company in companies]
+    except Exception as e:
+        print(f"❌ Помилка отримання списку компаній з MongoDB: {e}")
+        return []
 
-# --- ФУНКЦІЇ БАЗИ ДАНИХ ---
+def update_company_status(company_id: int, success: bool = True, error_message: str = None):
+    """Оновлює статус та час парсингу компанії."""
+    update_data = {
+        'last_parsed': datetime.now(UTC),
+        'last_status': 'success' if success else 'error'
+    }
+    if error_message:
+        update_data['last_error'] = error_message
+    
+    try:
+        db.company_ids.update_one(
+            {'company_id': company_id},
+            {'$set': update_data}
+        )
+    except Exception as e:
+        print(f"❌ Помилка оновлення статусу компанії {company_id}: {e}")
 
 def save_vacancy(raw_vacancy_data: Dict):
     """Очищає, тегує та зберігає вакансію в MongoDB."""
     
     vacancy_id = raw_vacancy_data.get('id')
-    raw_description = raw_vacancy_data.get('description', '') # Оригінальний опис з HTML
+    raw_description = raw_vacancy_data.get('description', '')
 
-    # URL формуємо на основі ID компанії (notebookId) та вакансії (id)
+    # URL формуємо на основі ID компанії та вакансії
     source_url = f"https://robota.ua/company{raw_vacancy_data['notebookId']}/vacancy{vacancy_id}"
 
     # 1. Створення основного документа
     processed_data = {
         'id_source': f"robota_{vacancy_id}",
         'source_url': source_url,
-        'title': raw_vacancy_data.get('name', 'N/A'),
-        'company_name': raw_vacancy_data.get('companyName', 'N/A'),
-        'salary_min': raw_vacancy_data.get('salary', 0), 
-        'salary_max': raw_vacancy_data.get('salary', 0), 
-        'city': raw_vacancy_data.get('vacancyAddress', 'N/A'),
-        
-        # <<< ВИПРАВЛЕНО: ЗБЕРІГАЄМО ТЕКСТ ДЛЯ ВІДОБРАЖЕННЯ >>>
-        'full_description': get_raw_description(raw_description),  
-        
-        'date_published': raw_vacancy_data.get('date'),
-        'date_parsed': datetime.now(UTC), 
+        'name': raw_vacancy_data.get('name', 'N/A'),
+        'companyName': raw_vacancy_data.get('companyName', 'N/A'),
+        'cityId': raw_vacancy_data.get('cityId'),
+        'vacancyAddress': raw_vacancy_data.get('vacancyAddress', 'N/A'),
+        'description': get_raw_description(raw_description),
+        'shortDescription': raw_vacancy_data.get('shortDescription'),
+        'date': raw_vacancy_data.get('date'),
+        'date_parsed': datetime.now(UTC),
     }
     
-    # 2. Генерація тегів (логіка тегування тепер використовує внутрішню очистку для NLP)
+    # 2. Генерація тегів
     tags = generate_tags(raw_vacancy_data)
     processed_data.update(tags)
     
-    # 3. Перевірка на дублікат (оновлення, якщо вже існує)
+    # 3. Оновлення/вставка в базу даних
     vacancies_collection.update_one(
         {'id_source': processed_data['id_source']},
         {'$set': processed_data},
-        upsert=True 
+        upsert=True
     )
-    print(f"✅ Збережено/Оновлено: {processed_data['title']} | Теги: {', '.join(processed_data['tags_tech'])}")
-
-
-# --- ФУНКЦІЯ ПАРСИНГУ ROBOTA.UA ---
-
+    print(f"✅ Збережено/Оновлено: {processed_data['name']} | Теги: {', '.join(processed_data['tags_tech'])}")
 
 def fetch_and_process_jobs_robota():
     """
-    1. Парсить компанії (GET /company/{id}) і зберігає в companies (upsert).
-    2. Парсить вакансії (GET /company/{id}/vacancies) і зберігає всі поля в vacancies (upsert).
-    3. Тегування — лише копія, не змінює оригінал.
+    1. Отримує список компаній з колекції company_ids
+    2. Парсить компанії та їх вакансії
+    3. Оновлює статус парсингу кожної компанії
     """
     total_processed = 0
-    for company_id in COMPANY_IDS:
+    companies_to_parse = get_company_ids()
+    
+    if not companies_to_parse:
+        print("ℹ️ Немає компаній для парсингу. Додайте компанії через init_db.py")
+        return
+    
+    print(f"📋 Знайдено {len(companies_to_parse)} компаній для обробки")
+    
+    for company_id in companies_to_parse:
         # --- 1. Парсинг компанії ---
         company_url = ROBOTA_COMPANY_BASE_URL.format(companyId=company_id)
         try:
             company_resp = requests.get(company_url, timeout=10)
             company_resp.raise_for_status()
             company_data = company_resp.json()
-            # Зберігаємо всі поля компанії (upsert)
+            
+            # Зберігаємо дані компанії
             companies_collection.update_one(
                 {'id': company_data.get('id')},
                 {'$set': company_data},
                 upsert=True
             )
             print(f"✅ Компанія {company_data.get('name', company_id)} збережена/оновлена.")
+            
         except Exception as e:
-            print(f"❌ Помилка парсингу компанії (ID: {company_id}): {e}")
+            error_msg = f"Помилка парсингу компанії: {str(e)}"
+            print(f"❌ {error_msg}")
+            update_company_status(company_id, success=False, error_message=error_msg)
             continue
 
         # --- 2. Парсинг вакансій ---
@@ -102,44 +122,47 @@ def fetch_and_process_jobs_robota():
             response = requests.get(vacancies_url, timeout=10)
             response.raise_for_status()
             data = response.json()
+            
             documents = data.get('documents', [])
             total_vacancies = len(documents)
+            
             if not documents:
                 print(f"-> Компанія ID {company_id}: Не знайдено активних вакансій.")
+                update_company_status(company_id, success=True)
                 continue
+
             company_name = documents[0].get('companyName', f'ID {company_id}')
             company_processed = 0
+
             for doc in documents:
                 doc['notebookId'] = company_id
-                # --- Тегування на копії ---
-                doc_copy = dict(doc)
-                tags = generate_tags(doc_copy)
-                doc_copy.update(tags)
-                # Зберігаємо всі поля з тегами (upsert)
-                vacancies_collection.update_one(
-                    {'id_source': f"robota_{doc_copy.get('id')}"},
-                    {'$set': doc_copy},
-                    upsert=True
-                )
+                save_vacancy(doc)
                 total_processed += 1
                 company_processed += 1
-            print(f"✅ Оброблено {company_processed} з {total_vacancies} вакансій компанії {company_name} (ID {company_id}).")
-            time.sleep(1)
+
+            print(f"✅ Оброблено {company_processed} з {total_vacancies} вакансій компанії {company_name}")
+            update_company_status(company_id, success=True)
+            
+            time.sleep(1)  # Антиспам пауза
+            
         except Exception as e:
-            print(f"❌ Помилка парсингу вакансій (ID: {company_id}): {e}")
+            error_msg = f"Помилка парсингу вакансій: {str(e)}"
+            print(f"❌ {error_msg}")
+            update_company_status(company_id, success=False, error_message=error_msg)
             time.sleep(2)
             continue
-    print(f"\n--- ЕТАП ROBOTA.UA ЗАВЕРШЕНО. Всього оброблено {total_processed} вакансій. ---")
 
+    print(f"\n🎉 ПАРСИНГ ЗАВЕРШЕНО")
+    print(f"📊 Всього оброблено {total_processed} вакансій з {len(companies_to_parse)} компаній")
 
 if __name__ == "__main__":
-    # 1. Перевірка з'єднання з MongoDB
     try:
+        # Перевірка з'єднання з MongoDB
         client.admin.command('ping')
-        print("✅ З'єднання з MongoDB успішно встановлено!")
+        print("✅ З'єднання з MongoDB встановлено!")
         
-        # 2. Запуск парсингу
+        # Запуск парсингу
         fetch_and_process_jobs_robota()
         
     except Exception as e:
-        print(f"❌ Помилка з'єднання з MongoDB. Переконайтесь, що Docker запущено: {e}")
+        print(f"❌ Помилка з'єднання з MongoDB: {e}")

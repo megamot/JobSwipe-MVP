@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Перехід на Robota.ua</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            background-color: #f0f2f5;
+        }
+        .container {
+            text-align: center;
+            padding: 20px;
+        }
+        .source-link {
+            display: inline-block;
+            padding: 12px 24px;
+            background-color: #00838f;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+            font-size: 16px;
+            transition: background-color 0.2s;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        .source-link:hover {
+            background-color: #006064;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a id="redirect-link" 
+           target="_blank" 
+           rel="noopener noreferrer" 
+           class="source-link">
+            Переглянути на Robota.ua →
+        </a>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const params = new URLSearchParams(window.location.search);
+            const companyId = params.get('companyId');
+            const vacancyId = params.get('vacancyId');
+            
+            const link = document.getElementById('redirect-link');
+            
+            // Формуємо URL як в parser.py
+            if (companyId && vacancyId) {
+                const url = `https://robota.ua/company${companyId}/vacancy${vacancyId}`;
+                link.href = url;
+            } else {
+                // Якщо URL невалідний, показуємо помилку
+                link.style.backgroundColor = '#d32f2f';
+                link.style.cursor = 'not-allowed';
+                link.onclick = (e) => {
+                    e.preventDefault();
+                    alert('Помилка: невалідне посилання на вакансію');
+                };
+            }
+        });
+    </script>
+</body>
+</html>

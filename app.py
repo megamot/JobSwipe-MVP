@@ -172,7 +172,7 @@ def get_single_vacancy(id_source):
             'shortDescription': vacancy.get('shortDescription'),
             'tags_tech': vacancy.get('tags_tech', []),
             'tags_company': vacancy.get('tags_company', []),
-            'source_url': f'https://robota.ua/company{vacancy.get("id", "")}/vacancy{vacancy.get("id_source", "").replace("robota_", "")}'
+            'source_url': vacancy.get('source_url')
         }
         
         return jsonify(response_data), 200
