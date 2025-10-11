@@ -97,42 +97,53 @@ def remove_liked_vacancy():
 @retry_mongo()
 def get_vacancies():
     """
-    Повертає вакансії, релевантні тегам користувача (якщо передано user_id), інакше випадкові.
+    Повертає вакансії, відсортовані за датою та відфільтровані за переглядами користувача та тегами.
     """
     user_id = request.args.get('user_id')
     try:
-        if user_id:
-            query = {'_id': ObjectId(user_id)} if ObjectId.is_valid(user_id) else {'_id': user_id}
-            user = users_collection.find_one(query)
-            if not user:
-                return jsonify({'error': 'User not found'}), 404
-            user_tags = user.get('selected_tags', [])
-            # Повертаємо вакансії, які мають хоча б один тег з user_tags
-            query = {'tags_tech': {'$in': user_tags}}
-            vacancies_cursor = vacancies_collection.find(query).limit(20)
-        else:
-            # Випадкові вакансії (MVP fallback)
-            pipeline = [
-                {'$match': {'tags_tech': {'$ne': None}}},
-                {'$sample': {'size': 10}}
+        if not user_id:
+            return jsonify({'error': 'user_id is required'}), 400
+
+        # Отримуємо дані користувача
+        query = {'_id': ObjectId(user_id)} if ObjectId.is_valid(user_id) else {'_id': user_id}
+        user = users_collection.find_one(query)
+        if not user:
+            return jsonify({'error': 'User not found'}), 404
+
+        # Отримуємо списки переглянутих вакансій
+        liked_vacancies = user.get('liked_vacancies', [])
+        rejected_vacancies = user.get('rejected_vacancies', [])
+        viewed_vacancies = liked_vacancies + rejected_vacancies
+
+        # Базовий запит: виключаємо переглянуті вакансії
+        base_query = {
+            'id_source': {'$nin': viewed_vacancies}
+        }
+
+        # Додаємо фільтрацію за тегами, якщо вони є
+        user_tags = user.get('selected_tags', [])
+        if user_tags:
+            base_query['$or'] = [
+                {'tags_tech': {'$in': user_tags}},
+                {'tags_company': {'$in': user_tags}}
             ]
-            vacancies_cursor = vacancies_collection.aggregate(pipeline)
+
+        # Отримуємо вакансії, сортуємо за датою
+        vacancies_cursor = vacancies_collection.find(base_query).sort('date', -1).limit(20)
+        
         vacancies_list = []
         for v in vacancies_cursor:
             vacancies_list.append({
                 'id_source': v.get('id_source'),
-                'title': v.get('name'),  # основна назва
-                'name': v.get('name'),   # альтернативна назва
-                'company_name': v.get('companyName'),
-                'companyName': v.get('companyName'),  # обидва варіанти
-                'city': 'Київ' if v.get('cityId') == 1 else v.get('city', 'Місто не вказано'),
+                'name': v.get('name'),
+                'companyName': v.get('companyName'),
                 'cityId': v.get('cityId'),
                 'vacancyAddress': v.get('vacancyAddress'),
                 'shortDescription': v.get('shortDescription'),
-                'full_description': v.get('description'),
                 'description': v.get('description'),
                 'tags_tech': v.get('tags_tech', []),
-                'tags_company': v.get('tags_company', [])
+                'tags_company': v.get('tags_company', []),
+                'date': v.get('date')
             })
         return jsonify(vacancies_list), 200
     except Exception as e:
@@ -153,19 +164,15 @@ def get_single_vacancy(id_source):
         # 2. Очищаємо ObjectId (вибираємо потрібні поля) та формуємо об'єкт для відправки
         response_data = {
             'id_source': vacancy.get('id_source'),
-            'title': vacancy.get('name'),  # використовуємо правильне поле
             'name': vacancy.get('name'),
-            'company_name': vacancy.get('companyName'),
             'companyName': vacancy.get('companyName'),
-            'city': 'Київ' if vacancy.get('cityId') == 1 else vacancy.get('city', 'Місто не вказано'),
             'cityId': vacancy.get('cityId'),
             'vacancyAddress': vacancy.get('vacancyAddress'),
-            'full_description': vacancy.get('description'),  # правильне поле опису
             'description': vacancy.get('description'),
             'shortDescription': vacancy.get('shortDescription'),
             'tags_tech': vacancy.get('tags_tech', []),
             'tags_company': vacancy.get('tags_company', []),
-            'source_url': f'https://robota.ua/company/{vacancy.get("id", "")}/vacancy{vacancy.get("id_source", "").replace("robota_", "")}'
+            'source_url': f'https://robota.ua/company{vacancy.get("id", "")}/vacancy{vacancy.get("id_source", "").replace("robota_", "")}'
         }
         
         return jsonify(response_data), 200

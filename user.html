@@ -39,6 +39,26 @@
             // Для MVP: userId зберігається в sessionStorage після логіну/реєстрації
             return sessionStorage.getItem('userId') || localStorage.getItem('userId');
         }
+
+        // Функція завантаження вподобаних вакансій
+        function fetchLiked() {
+            const userId = getUserId();
+            if (!userId) return;
+            
+            fetch(`${API_URL}?user_id=${encodeURIComponent(userId)}`)
+                .then(response => response.json())
+                .then(data => {
+                    renderVacancies(data);
+                })
+                .catch(error => {
+                    console.error('Error fetching liked vacancies:', error);
+                    document.getElementById('vacancy-list').innerHTML = 
+                        '<p style="color: #d32f2f;">Помилка завантаження даних. Спробуйте оновити сторінку.</p>';
+                });
+        }
+
+        // Завантажуємо вакансії при завантаженні сторінки
+        document.addEventListener('DOMContentLoaded', fetchLiked);
         function renderVacancies(vacancies) {
             const vacancyList = document.getElementById('vacancy-list');
             if (!Array.isArray(vacancies)) {
@@ -52,7 +72,7 @@
             let html = '<div class="vacancy-grid">';
             vacancies.forEach(v => {
                 // Обробка міста
-                let cityDisplay = v.cityId === 1 ? 'Київ' : v.city || 'Місто не вказано';
+                let cityDisplay = v.city === 1 ? 'Київ' : v.city || 'Місто не вказано';
                 if (v.vacancyAddress) {
                     cityDisplay += `, ${v.vacancyAddress}`;
                 }
@@ -63,8 +83,8 @@
                     .slice(0, 5);
 
                 html += `<div class="vacancy-card">
-                    <div class="card-title">${v.name || v.title || 'Назва не вказана'}</div>
-                    <div class="card-company">${v.companyName || v.company_name || 'Компанія'} · ${cityDisplay}</div>
+                    <div class="card-title">${v.title || 'Назва не вказана'}</div>
+                    <div class="card-company">${v.company_name || 'Компанія'} · ${cityDisplay}</div>
                     <div class="card-tags">${tags.map(tag => `<span class='tag'>${tag}</span>`).join('')}</div>
                     <a href="details.html?id=${v.id_source}" style="color:#00838f;">Детальніше →</a><br>
                     <button onclick="removeVacancy('${v.id_source}')" style="margin-top:8px;background:#ffebee;color:#c62828;border:none;padding:6px 12px;border-radius:6px;cursor:pointer;">Видалити</button>

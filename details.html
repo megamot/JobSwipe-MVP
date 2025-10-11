@@ -5,37 +5,132 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title id="page-title">Деталі вакансії</title>
     <style>
-        body { font-family: Arial, sans-serif; max-width: 800px; margin: 40px auto; padding: 20px; background-color: #f9f9f9; }
-        h1 { color: #333; margin-bottom: 5px; }
-        .company-info { font-size: 1.1em; color: #555; margin-bottom: 20px; }
-        .full-description { background-color: white; padding: 20px; border-radius: 8px; line-height: 1.6; margin-top: 20px; }
-        .tag-list { margin: 20px 0; }
-        .tag { display: inline-block; background-color: #00838f; color: white; border-radius: 15px; padding: 5px 10px; margin: 4px; font-size: 0.9em; }
-        .back-link { display: block; margin-bottom: 20px; text-decoration: none; color: #00838f; font-weight: bold; }
+        body { 
+            font-family: Arial, sans-serif; 
+            max-width: 800px; 
+            margin: 40px auto; 
+            padding: 20px; 
+            background-color: #f0f2f5; 
+        }
+        .container {
+            background: white;
+            border-radius: 12px;
+            padding: 25px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+        h1 { 
+            color: #333; 
+            margin: 0 0 10px 0;
+            font-size: 1.8em;
+        }
+        .company-info { 
+            font-size: 1.1em; 
+            color: #666; 
+            margin-bottom: 20px; 
+            padding-bottom: 15px;
+            border-bottom: 1px solid #eee;
+        }
+        .description { 
+            line-height: 1.6; 
+            color: #444;
+            margin: 20px 0;
+        }
+        .tag-list { 
+            margin: 20px 0; 
+        }
+        .tag { 
+            display: inline-block; 
+            background-color: #e0f7fa; 
+            color: #00838f; 
+            border-radius: 15px; 
+            padding: 5px 12px; 
+            margin: 4px; 
+            font-size: 0.9em; 
+        }
+        .nav-links {
+            margin-bottom: 20px;
+        }
+        .nav-link {
+            display: inline-block;
+            text-decoration: none;
+            color: #00838f;
+            font-weight: 500;
+            margin-right: 20px;
+        }
+        .nav-link:hover {
+            text-decoration: underline;
+        }
+        .source-link {
+            display: inline-block;
+            margin-top: 20px;
+            padding: 10px 20px;
+            background-color: #00838f;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+            transition: background-color 0.2s;
+        }
+        .source-link:hover {
+            background-color: #006064;
+        }
+        .error-message {
+            color: #d32f2f;
+            padding: 20px;
+            text-align: center;
+            background: #ffebee;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
     </style>
 </head>
 <body>
-    <a href="index.html" class="back-link">← Повернутися до свайпу вакансій</a>
+    <div class="nav-links">
+        <a href="index.html" class="nav-link">← Повернутися до свайпу</a>
+        <a href="user.html" class="nav-link">Мій кабінет</a>
+    </div>
     
-    <div id="vacancy-details">
-        <p>Завантаження деталей вакансії...</p>
+    <div id="vacancy-details" class="container">
+        <p style="text-align: center; color: #666;">
+            <i>Завантаження деталей вакансії...</i>
+        </p>
     </div>
 
     <script>
+        // --- КОНФІГУРАЦІЯ ---
         const API_BASE_URL = 'http://127.0.0.1:5000/api/vacancy';
         const detailsContainer = document.getElementById('vacancy-details');
 
-        // Функція для отримання параметра з URL (ID вакансії)
+        // --- ДОПОМІЖНІ ФУНКЦІЇ ---
+        function getUserId() {
+            return localStorage.getItem('userId');
+        }
+
         function getVacancyIdFromUrl() {
             const params = new URLSearchParams(window.location.search);
             return params.get('id');
         }
 
-        // Функція завантаження даних
+        function showError(message) {
+            detailsContainer.innerHTML = `
+                <div class="error-message">
+                    ${message}<br>
+                    <small>Спробуйте оновити сторінку або поверніться до списку вакансій.</small>
+                </div>
+            `;
+        }
+
+        // --- ОСНОВНА ЛОГІКА ---
         async function fetchVacancyDetails() {
+            // Перевірка авторизації
+            if (!getUserId()) {
+                showError('Для перегляду деталей вакансії необхідно увійти в систему');
+                return;
+            }
+
+            // Отримання ID вакансії
             const id_source = getVacancyIdFromUrl();
             if (!id_source) {
-                detailsContainer.innerHTML = 'Помилка: ID вакансії не знайдено.';
+                showError('ID вакансії не знайдено');
                 return;
             }
 
@@ -44,75 +139,87 @@
                 const vacancy = await response.json();
 
                 if (response.status !== 200) {
-                    detailsContainer.innerHTML = `Помилка завантаження: ${vacancy.error || 'Невідома помилка'}`;
+                    showError(vacancy.error || 'Помилка завантаження даних');
                     return;
                 }
-                
-                // Відображення деталей
-                renderDetails(vacancy);
+
+                renderVacancyDetails(vacancy);
 
             } catch (error) {
-                detailsContainer.innerHTML = 'Помилка з\'єднання з сервером API.';
-                console.error("Fetch Details Error:", error);
+                console.error('API Error:', error);
+                showError('Помилка з\'єднання з сервером');
             }
         }
 
-        // Функція рендерингу деталей
-        function renderDetails(vacancy) {
+        function renderVacancyDetails(vacancy) {
             // Підготовка даних
-            const title = vacancy.name || vacancy.title || 'Назва не вказана';
-            const company = vacancy.companyName || vacancy.company_name || 'Компанія';
+            const title = vacancy.name || 'Назва не вказана';
+            const company = vacancy.companyName || 'Компанія не вказана';
             
             // Форматування адреси
-            let location = vacancy.cityId === 1 ? 'Київ' : (vacancy.city || 'Місто не вказано');
+            let location = vacancy.cityId === 1 ? 'Київ' : 'Місто не вказано';
             if (vacancy.vacancyAddress) {
                 location += `, ${vacancy.vacancyAddress}`;
             }
-            
+
             // Оновлення заголовка сторінки
             document.getElementById('page-title').textContent = `${title} — ${company}`;
             
             // Підготовка тегів
-            const allTags = [...new Set((vacancy.tags_tech || []).concat(vacancy.tags_company || []))]
-                .filter(tag => tag && tag.trim());
-            const tagsHtml = allTags.map(tag => `<span class="tag">${tag}</span>`).join('');
+            const allTags = [...new Set([
+                ...(vacancy.tags_tech || []),
+                ...(vacancy.tags_company || [])
+            ])].filter(tag => tag && tag.trim());
+            
+            const tagsHtml = allTags.map(tag => 
+                `<span class="tag">${tag}</span>`
+            ).join('');
 
             // Підготовка опису
             let descriptionHtml = '';
-            if (vacancy.description || vacancy.full_description) {
-                descriptionHtml = vacancy.description || vacancy.full_description;
+            if (vacancy.description) {
+                const descContainer = document.createElement('div');
+                descContainer.innerHTML = vacancy.description;
+                descriptionHtml = descContainer.innerHTML
+                    .replace(/\t+/g, '')
+                    .replace(/\n\s*\n/g, '\n')
+                    .trim();
             } else if (vacancy.shortDescription) {
                 const tempDiv = document.createElement('div');
                 tempDiv.innerHTML = vacancy.shortDescription;
-                descriptionHtml = tempDiv.textContent;
+                descriptionHtml = tempDiv.innerHTML;
             } else {
-                descriptionHtml = 'Опис вакансії відсутній';
+                descriptionHtml = '<p><i>Опис вакансії відсутній</i></p>';
             }
 
-            // Рендеринг контенту
+            // Рендеринг
             detailsContainer.innerHTML = `
                 <h1>${title}</h1>
-                <div class="company-info">${company} · ${location}</div>
                 
+                <div class="company-info">
+                    ${company} · ${location}
+                </div>
+
                 <div class="tag-list">
                     ${tagsHtml}
                 </div>
 
-                <div class="full-description" id="description-content">
+                <div class="description">
                     ${descriptionHtml}
                 </div>
 
-                <p style="margin-top: 30px;">
-                    <a href="${vacancy.source_url}" target="_blank" style="color: #00838f; text-decoration: none;">
-                        Перейти до оригінальної вакансії на Robota.ua →
+                ${vacancy.source_url ? `
+                    <a href="${vacancy.source_url}" 
+                       target="_blank" 
+                       class="source-link">
+                        Переглянути на Robota.ua →
                     </a>
-                </p>
+                ` : ''}
             `;
-            document.getElementById('description-content').innerHTML = vacancy.full_description || 'Опис вакансії недоступний.';
-        
         }
 
-        fetchVacancyDetails();
+        // Запуск при завантаженні сторінки
+        document.addEventListener('DOMContentLoaded', fetchVacancyDetails);
     </script>
 </body>
 </html>
