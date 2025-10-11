@@ -10,35 +10,44 @@ ROBOTA_LEVEL_MAPPING: Dict[int, str] = {
     5: "#Executive"
 }
 
-# 2. ТЕГУВАННЯ НАПРЯМКІВ та ТЕХНОЛОГІЙ (tags_tech)
-TECH_DIRECTION_TAGS: Dict[str, List[str]] = {
-    # IT Розробка та Data
-    "#Backend": ['java', 'python', 'node.js', 'golang', 'php', 'django', 'backend'],
-    "#Frontend": ['react', 'vue', 'angular', 'javascript', 'typescript', 'frontend'],
-    "#QA_Testing": ['qa', 'тестувальник', 'tester', 'selenium', 'cypress', 'automation'],
-    "#Data": ['analyst', 'reporting', 'data-driven', 'sql', 'big data', 'bi', 'tableau'],
-    
-    # Креативні та Маркетинг
-    "#Marketing": ['маркетинг', 'smm', 'ppc', 'creative', 'performance', 'ads', 'google ads', 'meta ads', 'копірайтер'],
-    "#Design": ['designer', 'графічний', 'motion', 'figma', 'photoshop', 'illustrator', 'ui/ux'],
-    
-    # Бізнес та Адмін
-    "#Product": ['product manager', 'product marketing', 'продуктова', 'продукту', 'продакт'],
-    "#Support_CS": ['support', 'customer experience', 'клієнтський сервіс', 'сапорт', 'customer support'],
-    "#Legal_Finance": ['legal', 'counsel', 'юридичний', 'finance', 'acounting', 'payroll', 'бух. обліку'],
-    "#HR_Admin": ['rekruting', 'admin', 'travel manager', 'office manager', 'клінінг'],
-    
-    # Інші, що часто зустрічаються
-    "#SEO": ['seo', 'linkbuilder', 'serp', 'sem'],
-    "#AI_ML": ['ai', 'штучний інтелект', 'midjourney', 'runway', 'elevenlabs', 'sora']
-}
+# 2. ТЕГУВАННЯ Посади та Компетенції (Програми, Мови) - Адміністративний напрямок
 
-# 3. ТЕГУВАННЯ ТИПУ КОМПАНІЇ та ГЕОГРАФІЇ (tags_company)
-COMPANY_TYPE_TAGS: Dict[str, List[str]] = {
-    "#Продуктова_компанія": ['product company', 'продуктова компанія', 'venture builder', 'стартап', 'startup', 'власний продукт'],
-    "#Аутсорс": ['аутсорс', 'outsource', 'аутстаф'],
-    "#EdTech": ['brighterly', 'онлайн школу з вивчення математики'],
-    "#Entertainment": ['storyby', 'dramashorts', 'alphanovel', 'стрімінг', 'novels', 'романи'],
+ADMIN_DIRECTION_TAGS: Dict[str, List[str]] = {
+    # Посади / Roles
+    "#OfficeManager": ['офіс-менеджер', 'office manager', 'адміністратор офісу', 'head of office', 'administration'],
+    "#ExecutiveAssistant": ['асистент керівника', 'помічник керівника', 'executive assistant', 'personal assistant', 'pa', 'виконавчий асистент'],
+    "#AdministrativeAssistant": ['адміністративний асистент', 'admin assistant', 'administrative support', 'адміністративна підтримка', 'секретар', 'receptionist', 'адміністратор'],
+    "#ProcurementManager": ['менеджер із закупівель', 'procurement specialist', 'purchasing manager', 'закупник', 'buyer', 'фахівець з постачання', 'постачальник'],
+    "#SaleAssistant": ['sale assistant', 'sale support', 'асистент з продажів', 'менеджер з продажу', 'продавець-консультант', 'sales'],
+    "#BusinessOwner": ['підприємець', 'керівник', 'власний бізнес', 'business owner', 'founder', 'ceo', 'керівник кондитерської'],
+    "#LogisticsManager": ['менеджер з транспорту', 'логіст', 'координація логістики', 'logistics', 'transport manager', 'складання маршрутів', 'supply chain'],
+
+    # Компетенції / Competencies
+    "#DocumentManagement": ['документообіг', 'договірна робота', 'робота з документами', 'супровід документообігу', 'договори', 'contract management'],
+    "#OfficeMaintenance": ['підтримка життєдіяльності офісу', 'життєдіяльність офісу', 'office support', 'адміністративно-господарська діяльність', 'забезпечення офісу'],
+    "#VendorManagement": ['взаємодія з постачальниками', 'пошук постачальників', 'робота з постачальниками', 'постачання', 'vendors', 'постачальники'],
+    "#CustomerService": ['робота з клієнтами', 'клієнтський сервіс', 'customer service', 'customer support', 'обслуговування клієнтів'],
+    "#Purchasing": ['закупівлі', 'постачання продукції', 'замовлення', 'контроль постачання', 'buying', 'procurement'],
+    "#StaffManagement": ['управління персоналом', 'підбір персоналу', 'team management', 'керівництво командою'],
+    "#Budgeting": ['бюджетування', 'фінансовий контроль', 'кошторис', 'фінанси'],
+    "#PrimaryAccounting": ['ведення первинної бухгалтерії', 'первинна документація', 'робота в 1с', 'координація з бухгалтерією', 'invoices', 'бухгалтерія', 'cash'],
+
+    # Програми / Tools
+    "#1C": ['1с', '1с:бухгалтерія', 'робота в 1с'],
+    "#MicrosoftOffice": ['microsoft office', 'word', 'excel', 'powerpoint', 'MS office'],
+    "#CRM": ['crm', 'customer relationship management', 'срм'],
+    "#Trello": ['trello', 'трелло', 'project management tool'],
+    "#PhotoshopAdobe": ['photoshop', 'adobe', 'графічні редактори', 'дизайн'],
+
+    # Мови / Languages
+ # Рівні англійської мови
+    "#EnglishBeginner": ['англійська початковий', 'beginner', 'a1', 'a2', 'elementary', 'pre-intermediate', 'базовий'],
+    "#EnglishIntermediate": ['англійська середній', 'intermediate', 'b1', 'b2', 'upper-intermediate', 'середній', 'розмовний', 'розмовна англійська'],
+    "#EnglishAdvanced": ['англійська просунутий', 'advanced', 'c1', 'c2', 'fluent', 'proficiency', 'вільно', 'просунутий', 'вільне володіння', 'native speaker', 'рідна мова'],
+
+    # Загальні та описові теги
+    "#English": ['англійська', 'english', 'мова', 'language', 'іноземна'],
+    "#UkrainianFluent": ['українська', 'вільно', 'ukrainian', 'fluent', 'рідна мова'],
 }
 
 GEOGRAPHY_MAPPING: Dict[int, str] = {
@@ -117,21 +126,11 @@ def generate_tags(vacancy: Dict) -> Dict[str, List[str]]:
     if level_id in ROBOTA_LEVEL_MAPPING:
         tech_tags.add(ROBOTA_LEVEL_MAPPING[level_id])
     
-    # 2. Тегування НАПРЯМКІВ та ТЕХНОЛОГІЙ
-    for tag, keywords in TECH_DIRECTION_TAGS.items():
+    # 2. Тегування АДМІНІСТРАТИВНОГО НАПРЯМКУ
+    for tag, keywords in ADMIN_DIRECTION_TAGS.items():
         if any(keyword in full_text for keyword in keywords):
             tech_tags.add(tag)
 
-    # 3. Тегування ТИПУ КОМПАНІЇ та ГЕОГРАФІЇ
-    company_name = vacancy.get('companyName', '').lower()
-    for tag, keywords in COMPANY_TYPE_TAGS.items():
-        if any(keyword in full_text or keyword in company_name for keyword in keywords):
-            company_tags.add(tag)
-    
-    # Встановлюємо тег Venture Builder
-    if 'skelar' in company_name or 'venture builder' in full_text:
-         company_tags.add("#Venture_Builder")
-    
     # 4. Тегування ГЕОГРАФІЇ
     city_id = vacancy.get('cityId', 0)
     address = vacancy.get('vacancyAddress', '')
