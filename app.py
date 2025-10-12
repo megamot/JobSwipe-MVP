@@ -248,16 +248,29 @@ def login_user():
     return jsonify({'user_id': str(user['_id'])}), 200
 
 # --- USER TAG SELECTION ---
-@app.route('/api/user/tags', methods=['POST'])
-def set_user_tags():
-    data = request.get_json()
-    user_id = data.get('user_id')
-    tags = data.get('tags', [])
+@app.route('/api/user/tags', methods=['GET', 'POST'])
+def user_tags():
+    if request.method == 'GET':
+        user_id = request.args.get('user_id')
+    else:
+        data = request.get_json()
+        user_id = data.get('user_id')
+        tags = data.get('tags', [])
+
     if not user_id:
         return jsonify({'error': 'user_id required'}), 400
+
     query = {'_id': ObjectId(user_id)} if ObjectId.is_valid(user_id) else {'_id': user_id}
-    users_collection.update_one(query, {'$set': {'selected_tags': tags}})
-    return jsonify({'status': 'success'}), 200
+    
+    if request.method == 'GET':
+        user = users_collection.find_one(query)
+        if not user:
+            return jsonify({'tags': []}), 200
+        return jsonify({'tags': user.get('selected_tags', [])}), 200
+
+    # POST method
+    users_collection.update_one(query, {'$set': {'selected_tags': tags}}, upsert=True)
+    return jsonify({'status': 'success', 'tags': tags}), 200
 
 # --- USER CABINET: liked vacancies ---
 @app.route('/api/user/liked', methods=['GET'])

@@ -5,8 +5,75 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>JobSwipe MVP Prototype</title>
     <style>
-        /* --- CSS для СТИЛІЗАЦІЇ КАРТКИ --- */
-        body { font-family: Arial, sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; background-color: #f0f2f5; }
+        body { 
+            font-family: Arial, sans-serif; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            min-height: 100vh; 
+            margin: 0; 
+            background-color: #f0f2f5; 
+        }
+        
+        /* --- Стилі для тегів --- */
+        #tags-section {
+            max-width: 600px;
+            padding: 20px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+        
+        .tag-label {
+            position: relative;
+            display: inline-block;
+            margin: 5px;
+            padding: 5px 10px;
+            background: #e0f7fa;
+            border-radius: 15px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .tag-label:hover {
+            background: #b2ebf2;
+        }
+        
+        .tag-tooltip {
+            visibility: hidden;
+            position: absolute;
+            z-index: 1;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 14px;
+            white-space: pre-wrap;
+            max-width: 250px;
+            text-align: center;
+            margin-bottom: 5px;
+        }
+        
+        .tag-label:hover .tag-tooltip {
+            visibility: visible;
+        }
+        
+        /* Трикутник під тултіпом */
+        .tag-tooltip::after {
+            content: "";
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            margin-left: -5px;
+            border-width: 5px;
+            border-style: solid;
+            border-color: rgba(0, 0, 0, 0.8) transparent transparent transparent;
+        }
+        
+        /* --- Інші стилі залишаються без змін --- */
         .card-container { width: 350px; height: 450px; position: relative; }
         .job-card {
             position: absolute;
@@ -17,7 +84,7 @@
             box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
             padding: 20px;
             box-sizing: border-box;
-            transition: transform 0.5s ease-out; /* Анімація для свайпу */
+            transition: transform 0.5s ease-out;
             cursor: grab;
             display: flex;
             flex-direction: column;
@@ -27,14 +94,34 @@
         .card-title { font-size: 1.4em; font-weight: bold; margin-bottom: 5px; color: #333; }
         .card-company { font-size: 1em; color: #555; }
         .card-tags { margin-top: 10px; }
-        .tag { display: inline-block; background-color: #e0f7fa; color: #00838f; border-radius: 12px; padding: 4px 8px; margin: 3px; font-size: 0.8em; }
+        .tag { display: inline-block; background-color: #e0f7fa; color: #00838f; border-radius: 15px; padding: 5px 12px; margin: 4px; font-size: 0.9em; }
         .swipe-info { text-align: center; margin-top: 20px; font-weight: bold; color: #666; }
+        
+        /* Стилі для чекбоксів */
+        input[type="checkbox"] {
+            margin-right: 5px;
+        }
+        
+        /* Стилі для кнопок */
+        button {
+            background-color: #00838f;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 10px;
+            transition: background-color 0.2s;
+        }
+        
+        button:hover {
+            background-color: #006064;
+        }
     </style>
-    </head>
+</head>
 <body>
-
     <div style="position: absolute; top: 10px; left: 10px; display: flex; gap: 20px;">
-    <a href="user.html" id="cabinet-link" style="font-size: 1.1em; color: #00838f; text-decoration: underline;">Кабінет користувача</a>
+        <a href="user.html" id="cabinet-link" style="font-size: 1.1em; color: #00838f; text-decoration: underline;">Кабінет користувача</a>
         <button id="logout-btn" style="font-size:1em; color:#fff; background:#f44336; border:none; border-radius:5px; padding:5px 15px; display:none; cursor:pointer;">Вихід</button>
     </div>
 
@@ -47,7 +134,7 @@
         <div id="auth-msg" style="color: red; margin-top: 5px;"></div>
     </div>
 
-    <div id="tags-section" style="display:none; margin-bottom: 20px;">
+    <div id="tags-section" style="display:none;">
         <h3>Оберіть теги:</h3>
         <div id="tags-list"></div>
         <button onclick="saveTags()">Зберегти теги</button>
@@ -58,41 +145,170 @@
     </div>
 
     <div class="swipe-info" id="swipe-controls" style="display:none;">
-        <button onclick="simulateSwipe('like')" style="background-color: #4CAF50; color: white; padding: 10px 20px; border: none; border-radius: 5px; margin-right: 15px;">Свайп Праворуч (👍)</button>
-        <button onclick="simulateSwipe('nope')" style="background-color: #f44336; color: white; padding: 10px 20px; border: none; border-radius: 5px;">Свайп Ліворуч (👎)</button>
+        <button onclick="simulateSwipe('like')" style="background-color: #4CAF50;">Свайп Праворуч (👍)</button>
+        <button onclick="simulateSwipe('nope')" style="background-color: #f44336;">Свайп Ліворуч (👎)</button>
     </div>
 
     <script>
-    const API_URL = 'http://127.0.0.1:5000/api/vacancies';
-    const SWIPE_URL = 'http://127.0.0.1:5000/api/swipe';
-    const REGISTER_URL = 'http://127.0.0.1:5000/api/register';
-    const LOGIN_URL = 'http://127.0.0.1:5000/api/login';
-    const TAGS_URL = 'http://127.0.0.1:5000/api/user/tags';
-    const cardContainer = document.getElementById('card-container');
-    let currentVacancies = [];
-    let userId = null;
-    let selectedTags = [];
+        // --- КОНФІГУРАЦІЯ ---
+        const API_URL = 'http://127.0.0.1:5000/api/vacancies';
+        const SWIPE_URL = 'http://127.0.0.1:5000/api/swipe';
+        const REGISTER_URL = 'http://127.0.0.1:5000/api/register';
+        const LOGIN_URL = 'http://127.0.0.1:5000/api/login';
+        const TAGS_URL = 'http://127.0.0.1:5000/api/user/tags';
+        const cardContainer = document.getElementById('card-container');
+        let currentVacancies = [];
+        let userId = null;
+        let selectedTags = [];
 
-       // 1. ФУНКЦІЯ СТВОРЕННЯ КАРТКИ
+        // --- ПІДКАЗКИ ДЛЯ ТЕГІВ ---
+        const TAG_HINTS = {
+            '#OfficeManager': ['офіс-менеджер', 'office manager', 'адміністратор офісу', 'head of office', 'administration'],
+            '#ExecutiveAssistant': ['асистент керівника', 'помічник керівника', 'executive assistant', 'personal assistant', 'pa', 'виконавчий асистент'],
+            '#AdministrativeAssistant': ['адміністративний асистент', 'admin assistant', 'administrative support', 'адміністративна підтримка', 'секретар', 'receptionist', 'адміністратор'],
+            '#ProcurementManager': ['менеджер із закупівель', 'procurement specialist', 'purchasing manager', 'закупник', 'buyer', 'фахівець з постачання', 'постачальник'],
+            '#SaleAssistant': ['sale assistant', 'sale support', 'асистент з продажів', 'менеджер з продажу', 'продавець-консультант', 'sales'],
+            '#BusinessOwner': ['підприємець', 'керівник', 'власний бізнес', 'business owner', 'founder', 'ceo'],
+            '#LogisticsManager': ['менеджер з транспорту', 'логіст', 'координація логістики', 'logistics', 'transport manager', 'supply chain'],
+            '#DocumentManagement': ['документообіг', 'договірна робота', 'робота з документами', 'супровід документообігу', 'договори', 'contract management'],
+            '#OfficeMaintenance': ['підтримка життєдіяльності офісу', 'office support', 'адміністративно-господарська діяльність', 'забезпечення офісу'],
+            '#VendorManagement': ['взаємодія з постачальниками', 'пошук постачальників', 'робота з постачальниками', 'постачання', 'vendors', 'постачальники'],
+            '#CustomerService': ['робота з клієнтами', 'клієнтський сервіс', 'customer service', 'customer support', 'обслуговування клієнтів'],
+            '#Purchasing': ['закупівлі', 'постачання продукції', 'замовлення', 'контроль постачання', 'buying', 'procurement'],
+            '#StaffManagement': ['управління персоналом', 'підбір персоналу', 'team management', 'керівництво командою'],
+            '#Budgeting': ['бюджетування', 'фінансовий контроль', 'кошторис', 'фінанси'],
+            '#PrimaryAccounting': ['ведення первинної бухгалтерії', 'первинна документація', 'робота в 1с', 'координація з бухгалтерією', 'invoices', 'бухгалтерія', 'cash'],
+            '#1C': ['1с', '1с:бухгалтерія', 'робота в 1с'],
+            '#MicrosoftOffice': ['microsoft office', 'word', 'excel', 'powerpoint', 'MS office'],
+            '#CRM': ['crm', 'customer relationship management', 'срм'],
+            '#Trello': ['trello', 'трелло', 'project management tool'],
+            '#PhotoshopAdobe': ['photoshop', 'adobe', 'графічні редактори', 'дизайн'],
+            '#EnglishBeginner': ['англійська початковий', 'beginner', 'a1', 'a2', 'elementary', 'pre-intermediate', 'базовий'],
+            '#EnglishIntermediate': ['англійська середній', 'intermediate', 'b1', 'b2', 'upper-intermediate', 'середній', 'розмовний'],
+            '#EnglishAdvanced': ['англійська просунутий', 'advanced', 'c1', 'c2', 'fluent', 'proficiency', 'вільно', 'native speaker'],
+            '#English': ['англійська', 'english', 'мова', 'language', 'іноземна'],
+            '#UkrainianFluent': ['українська', 'вільно', 'ukrainian', 'fluent', 'рідна мова'],
+            '#Trainee': ['стажер', 'практикант', 'trainee'],
+            '#Junior': ['junior', 'початківець', 'молодший спеціаліст'],
+            '#Middle': ['middle', 'спеціаліст', 'досвідчений'],
+            '#Senior': ['senior', 'старший спеціаліст', 'провідний'],
+            '#Executive': ['executive', 'керівник', 'директор', 'head']
+        };
+
+        const ALL_TAGS = Object.keys(TAG_HINTS);
+
+        // --- ФУНКЦІЇ ---
+        function showTags() {
+            document.getElementById('tags-section').style.display = '';
+            const tagsList = document.getElementById('tags-list');
+            tagsList.innerHTML = '';
+            
+            ALL_TAGS.forEach(tag => {
+                const label = document.createElement('label');
+                label.className = 'tag-label';
+                
+                // Створюємо підказку
+                const tooltip = document.createElement('span');
+                tooltip.className = 'tag-tooltip';
+                tooltip.textContent = TAG_HINTS[tag].join(', ');
+                
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.value = tag;
+                checkbox.checked = selectedTags.includes(tag);
+                checkbox.onchange = function() { onTagChange(this); };
+                
+                label.appendChild(checkbox);
+                label.appendChild(document.createTextNode(` ${tag}`));
+                label.appendChild(tooltip);
+                
+                tagsList.appendChild(label);
+            });
+        }
+
+        function onTagChange(checkbox) {
+            if (checkbox.checked && !selectedTags.includes(checkbox.value)) {
+                selectedTags.push(checkbox.value);
+            } else if (!checkbox.checked) {
+                selectedTags = selectedTags.filter(t => t !== checkbox.value);
+            }
+        }
+
+        function saveTags() {
+            fetch(TAGS_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ user_id: userId, tags: selectedTags })
+            })
+            .then(() => {
+                localStorage.setItem('selectedTags', JSON.stringify(selectedTags));
+                document.getElementById('tags-section').style.display = 'none';
+                cardContainer.style.display = '';
+                document.getElementById('swipe-controls').style.display = '';
+                fetchVacancies();
+            });
+        }
+
+        function register() {
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            fetch(REGISTER_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, password })
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.user_id) {
+                    userId = data.user_id;
+                    localStorage.setItem('userId', userId);
+                    document.getElementById('auth-section').style.display = 'none';
+                    document.getElementById('logout-btn').style.display = '';
+                    fetchUserTags();
+                } else {
+                    document.getElementById('auth-msg').textContent = data.error || 'Помилка реєстрації';
+                }
+            });
+        }
+
+        function login() {
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            fetch(LOGIN_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, password })
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.user_id) {
+                    userId = data.user_id;
+                    localStorage.setItem('userId', userId);
+                    document.getElementById('auth-section').style.display = 'none';
+                    document.getElementById('logout-btn').style.display = '';
+                    fetchUserTags();
+                } else {
+                    document.getElementById('auth-msg').textContent = data.error || 'Помилка входу';
+                }
+            });
+        }
+
+        // --- ВАКАНСІЇ ---
         function createCard(vacancy) {
             const card = document.createElement('div');
             card.className = 'job-card';
             card.dataset.id = vacancy.id_source;
 
-            // Обробка міста
             let cityDisplay = vacancy.cityId === 1 ? 'Київ' : 'Місто не вказано';
             if (vacancy.vacancyAddress) {
                 cityDisplay += `, ${vacancy.vacancyAddress}`;
             }
 
-            // Обробка опису
             let shortDesc = '';
             if (vacancy.shortDescription) {
-                // Видаляємо HTML теги та зайві пробіли
                 const tempDiv = document.createElement('div');
                 tempDiv.innerHTML = vacancy.shortDescription;
                 const cleanText = tempDiv.textContent.trim();
-                // Беремо перше речення, обмежуємо довжину
                 shortDesc = cleanText.split(/[.!?]/)[0];
                 if (shortDesc.length > 150) {
                     shortDesc = shortDesc.substring(0, 150) + '...';
@@ -100,7 +316,6 @@
                 shortDesc += '.';
             }
 
-            // Фільтруємо унікальні теги
             const tags = [...new Set((vacancy.tags_tech || []).concat(vacancy.tags_company || []))]
                 .filter(tag => tag && tag.trim())
                 .slice(0, 5);
@@ -119,12 +334,12 @@
             return card;
         }
 
-        // 2. ФУНКЦІЯ ОБРОБКИ СВАЙПУ (ІМІТАЦІЯ)
         function simulateSwipe(type) {
             if (currentVacancies.length === 0) {
                 alert('Вакансії закінчилися! Перезавантажте сторінку.');
                 return;
             }
+
             if (!userId) {
                 alert('Спочатку увійдіть або зареєструйтесь!');
                 return;
@@ -133,13 +348,11 @@
             const currentCard = cardContainer.querySelector('.job-card');
             const vacancyId = currentCard.dataset.id;
 
-            // Анімація свайпу
             currentCard.style.transform = type === 'like' 
                 ? 'translateX(1000px) rotate(30deg)' 
                 : 'translateX(-1000px) rotate(-30deg)';
             currentCard.style.opacity = 0;
 
-            // Відправляємо результат свайпу
             fetch(SWIPE_URL, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -152,20 +365,11 @@
             .then(response => response.json())
             .then(data => {
                 setTimeout(() => {
-                    // Видаляємо поточну картку
                     currentCard.remove();
-                    
-                    // Видаляємо оброблену вакансію з масиву
                     currentVacancies = currentVacancies.filter(v => v.id_source !== vacancyId);
-
-                    // Видаляємо першу вакансію з масиву, бо вона вже оброблена
-                    currentVacancies.shift();
-                    
                     if (currentVacancies.length > 0) {
-                        // Показуємо наступну вакансію (яка тепер перша в масиві)
                         cardContainer.appendChild(createCard(currentVacancies[0]));
                     } else {
-                        // Якщо вакансії закінчились, завантажуємо нові
                         fetchVacancies();
                     }
                 }, 500);
@@ -176,20 +380,17 @@
             });
         }
 
-        // 3. ФУНКЦІЯ ЗАВАНТАЖЕННЯ ДАНИХ З API
         async function fetchVacancies() {
             if (!userId) return;
             cardContainer.innerHTML = '<p style="text-align:center;"><i>Завантаження вакансій...</i></p>';
 
             try {
-                // Отримуємо профіль користувача для перевірки історії свайпів
                 const userProfileResponse = await fetch('http://127.0.0.1:5000/api/user/profile?user_id=' + encodeURIComponent(userId));
                 const userProfile = await userProfileResponse.json();
                 const likedVacancies = userProfile.liked_vacancies || [];
                 const rejectedVacancies = userProfile.rejected_vacancies || [];
                 const viewedVacancies = new Set([...likedVacancies, ...rejectedVacancies]);
 
-                // Отримуємо всі вакансії
                 let url = API_URL + '?user_id=' + encodeURIComponent(userId);
                 const response = await fetch(url);
                 const vacancies = await response.json();
@@ -199,18 +400,14 @@
                     return;
                 }
 
-                // Спочатку відфільтруємо вакансії за історією переглядів
                 let availableVacancies = vacancies.filter(vacancy => !viewedVacancies.has(vacancy.id_source));
 
-                // Якщо після першої фільтрації є доступні вакансії, 
-                // сортуємо їх за датою (від найновіших до найстаріших)
                 availableVacancies.sort((a, b) => {
                     const dateA = new Date(a.date || 0);
                     const dateB = new Date(b.date || 0);
                     return dateB - dateA;
                 });
 
-                // Тепер фільтруємо за тегами, якщо вони вибрані
                 if (selectedTags && selectedTags.length > 0) {
                     availableVacancies = availableVacancies.filter(vacancy => {
                         const vacancyTags = [...(vacancy.tags_tech || []), ...(vacancy.tags_company || [])];
@@ -223,10 +420,7 @@
                     return;
                 }
 
-                // Оновлюємо currentVacancies тільки з доступними вакансіями
                 currentVacancies = availableVacancies;
-
-                // Показуємо першу доступну вакансію
                 cardContainer.innerHTML = '';
                 cardContainer.appendChild(createCard(currentVacancies[0]));
 
@@ -236,100 +430,15 @@
             }
         }
 
-        // --- АВТОРИЗАЦІЯ ---
-        function register() {
-            const username = document.getElementById('username').value;
-            const password = document.getElementById('password').value;
-            fetch(REGISTER_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username, password })
-            })
-            .then(r => r.json())
-            .then(data => {
-                if (data.user_id) {
-                    userId = data.user_id;
-                    localStorage.setItem('userId', userId);
-                    document.getElementById('auth-section').style.display = 'none';
-                    fetchUserTags();
-                } else {
-                    document.getElementById('auth-msg').textContent = data.error || 'Помилка реєстрації';
-                }
-            });
-        }
-        function login() {
-            const username = document.getElementById('username').value;
-            const password = document.getElementById('password').value;
-            fetch(LOGIN_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username, password })
-            })
-            .then(r => r.json())
-            .then(data => {
-                if (data.user_id) {
-                    userId = data.user_id;
-                    localStorage.setItem('userId', userId);
-                    document.getElementById('auth-section').style.display = 'none';
-                    fetchUserTags();
-                } else {
-                    document.getElementById('auth-msg').textContent = data.error || 'Помилка входу';
-                }
-            });
-        }
-
-        // --- ВИБІР ТЕГІВ ---
-        const ALL_TAGS = [
-            '#OfficeManager', '#ExecutiveAssistant', '#AdministrativeAssistant', '#ProcurementManager',
-            '#SaleAssistant', '#BusinessOwner', '#LogisticsManager', '#DocumentManagement',
-            '#OfficeMaintenance', '#VendorManagement', '#CustomerService', '#Purchasing',
-            '#StaffManagement', '#Budgeting', '#PrimaryAccounting', '#1C',
-            '#MicrosoftOffice', '#CRM', '#Trello', '#PhotoshopAdobe',
-            '#EnglishBeginner', '#EnglishIntermediate', '#EnglishAdvanced', '#English',
-            '#UkrainianFluent', '#Trainee', '#Junior', '#Middle', '#Senior', '#Executive'
-        ];
-        function showTags() {
-            document.getElementById('tags-section').style.display = '';
-            const tagsList = document.getElementById('tags-list');
-            tagsList.innerHTML = '';
-            ALL_TAGS.forEach(tag => {
-                const el = document.createElement('label');
-                const checked = selectedTags.includes(tag) ? 'checked' : '';
-                el.innerHTML = `<input type='checkbox' value='${tag}' onchange='onTagChange(this)' ${checked}/> ${tag}`;
-                tagsList.appendChild(el);
-            });
-        }
-        function onTagChange(checkbox) {
-            if (checkbox.checked && !selectedTags.includes(checkbox.value)) selectedTags.push(checkbox.value);
-            else if (!checkbox.checked) selectedTags = selectedTags.filter(t => t !== checkbox.value);
-        }
-        function saveTags() {
-            fetch(TAGS_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ user_id: userId, tags: selectedTags })
-            })
-            .then(() => {
-                localStorage.setItem('selectedTags', JSON.stringify(selectedTags));
-                document.getElementById('tags-section').style.display = 'none';
-                cardContainer.style.display = '';
-                document.getElementById('swipe-controls').style.display = '';
-                fetchVacancies();
-            });
-        }
-
-        // --- Завантаження тегів користувача при вході ---
         function fetchUserTags() {
             let tags = JSON.parse(localStorage.getItem('selectedTags')) || [];
             function afterTagsLoaded() {
                 if (!selectedTags || selectedTags.length === 0) {
-                    // Show tag selection UI, hide swipe UI
                     document.getElementById('tags-section').style.display = '';
                     cardContainer.style.display = 'none';
                     document.getElementById('swipe-controls').style.display = 'none';
                     showTags();
                 } else {
-                    // Hide tag selection, show swipe UI
                     document.getElementById('tags-section').style.display = 'none';
                     cardContainer.style.display = '';
                     document.getElementById('swipe-controls').style.display = '';
@@ -350,8 +459,7 @@
             }
         }
 
-        // --- Автоматичний вхід, якщо userId вже є ---
-        // --- Вихід (logout) ---
+        // --- АВТОМАТИЧНИЙ ВХІД ---
         document.getElementById('logout-btn').onclick = function() {
             userId = null;
             selectedTags = [];
@@ -365,13 +473,13 @@
         };
 
         window.addEventListener('DOMContentLoaded', () => {
-        // --- Заборонити перехід у кабінет незалогіненим ---
-        document.getElementById('cabinet-link').addEventListener('click', function(e) {
-            if (!localStorage.getItem('userId')) {
-                e.preventDefault();
-                alert('Спочатку увійдіть у систему!');
-            }
-        });
+            document.getElementById('cabinet-link').addEventListener('click', function(e) {
+                if (!localStorage.getItem('userId')) {
+                    e.preventDefault();
+                    alert('Спочатку увійдіть у систему!');
+                }
+            });
+            
             userId = localStorage.getItem('userId');
             if (userId) {
                 document.getElementById('auth-section').style.display = 'none';

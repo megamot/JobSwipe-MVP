@@ -5,38 +5,345 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Кабінет користувача — Обрані вакансії</title>
     <style>
-        body { font-family: Arial, sans-serif; max-width: 800px; margin: 40px auto; padding: 20px; background-color: #f9f9f9; }
+        body { 
+            font-family: Arial, sans-serif; 
+            max-width: 800px; 
+            margin: 40px auto; 
+            padding: 20px; 
+            background-color: #f0f2f5; 
+        }
         h1 { color: #333; margin-bottom: 5px; }
+        
+        /* Стилі для вакансій */
         .vacancy-grid { display: flex; flex-wrap: wrap; gap: 20px; }
-        .vacancy-card { background: #fff; border-radius: 10px; box-shadow: 0 2px 8px #0001; padding: 18px; width: 320px; }
+        .vacancy-card { 
+            background: #fff; 
+            border-radius: 10px; 
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1); 
+            padding: 18px; 
+            width: 320px; 
+        }
         .card-title { font-size: 1.2em; font-weight: bold; margin-bottom: 5px; color: #333; }
         .card-company { font-size: 1em; color: #555; margin-bottom: 8px; }
         .card-tags { margin-bottom: 10px; }
-        .tag { display: inline-block; background-color: #e0f7fa; color: #00838f; border-radius: 12px; padding: 4px 8px; margin: 3px; font-size: 0.8em; }
-        .back-link { display: block; margin-bottom: 20px; text-decoration: none; color: #00838f; font-weight: bold; }
+        .vacancy-tag { 
+            display: inline-block; 
+            background-color: #e0f7fa; 
+            color: #00838f; 
+            border-radius: 12px; 
+            padding: 4px 8px; 
+            margin: 3px; 
+            font-size: 0.8em; 
+        }
+        
+        /* Стилі для секції тегів */
+        #tags-section {
+            max-width: 100%;
+            padding: 20px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            margin-bottom: 24px;
+        }
+        
+        #tags-section h3 {
+            margin-bottom: 15px;
+            color: #333;
+            font-size: 1.2em;
+        }
+
+        #tags-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+            margin-bottom: 15px;
+        }
+        
+        .tag-label {
+            position: relative;
+            display: inline-block;
+            margin: 5px;
+            padding: 5px 10px;
+            background: #e0f7fa;
+            border-radius: 15px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 0.9em;
+            user-select: none;
+        }
+        
+        .tag-label:hover {
+            background: #b2ebf2;
+        }
+        
+        .tag-tooltip {
+            visibility: hidden;
+            position: absolute;
+            z-index: 1;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 14px;
+            white-space: pre-wrap;
+            max-width: 250px;
+            text-align: center;
+            margin-bottom: 5px;
+        }
+        
+        .tag-label:hover .tag-tooltip {
+            visibility: visible;
+        }
+        
+        /* Трикутник під тултіпом */
+        .tag-tooltip::after {
+            content: "";
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            margin-left: -5px;
+            border-width: 5px;
+            border-style: solid;
+            border-color: rgba(0, 0, 0, 0.8) transparent transparent transparent;
+        }
+        
+        .tag-label:active {
+            transform: translateY(0);
+        }
+        
+        .tag-label input[type="checkbox"] {
+            display: none;
+        }
+        
+        .tag-label input[type="checkbox"]:checked + span {
+            color: white;
+        }
+        
+        .tag-label input[type="checkbox"]:checked ~ .tag-text {
+            color: white;
+        }
+        
+        .tag-label input[type="checkbox"]:checked + .tag-label,
+        .tag-label input[type="checkbox"]:checked {
+            background-color: #00838f;
+        }
+        
+        /* Стиль для обраного тегу */
+        .tag-label.selected {
+            background-color: #00838f;
+            color: white;
+        }
+        
+        .tag-text {
+            transition: all 0.2s;
+        }
+        
+        .tag-tooltip {
+            visibility: hidden;
+            position: absolute;
+            z-index: 10;
+            bottom: 125%;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: rgba(0, 0, 0, 0.85);
+            color: white;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 13px;
+            line-height: 1.4;
+            white-space: pre-wrap;
+            max-width: 250px;
+            width: max-content;
+            text-align: center;
+            margin-bottom: 5px;
+            opacity: 0;
+            transition: opacity 0.2s, visibility 0.2s;
+            pointer-events: none;
+        }
+        
+        .tag-label:hover .tag-tooltip {
+            visibility: visible;
+            opacity: 1;
+        }
+        
+        /* Трикутник під тултіпом */
+        .tag-tooltip::after {
+            content: "";
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            border: 5px solid transparent;
+            border-top-color: rgba(0, 0, 0, 0.85);
+        }
+
+        @media (max-width: 768px) {
+            #tags-section {
+                padding: 15px;
+                margin-bottom: 16px;
+            }
+
+            #tags-list {
+                max-height: 250px;
+                gap: 6px;
+            }
+
+            .tag-label {
+                padding: 5px 10px;
+                font-size: 0.85em;
+            }
+
+            .tag-tooltip {
+                display: none; /* Приховуємо тултіпи на мобільних */
+            }
+        }
+
+        @media (max-width: 480px) {
+            body {
+                padding: 15px;
+            }
+
+            #tags-section {
+                padding: 12px;
+                margin-bottom: 12px;
+            }
+
+            #tags-list {
+                max-height: 200px;
+                gap: 4px;
+            }
+            
+            .tag-label {
+                padding: 4px 8px;
+                font-size: 0.8em;
+            }
+        }
+        
+        /* Стилі для групування тегів */
+        .tags-group {
+            margin-bottom: 15px;
+        }
+        
+        .tags-group-title {
+            font-size: 0.9em;
+            color: #666;
+            margin: 10px 0 5px;
+            padding-left: 5px;
+            font-weight: bold;
+        }
+
+        /* Стилі для кнопок */
+        .save-button {
+            background-color: #00838f;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            margin-top: 15px;
+        }
+        
+        .save-button:hover {
+            background-color: #006064;
+        }
+
+        .save-message {
+            color: #4caf50;
+            margin-left: 10px;
+            font-size: 0.9em;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        
+        .save-message.visible {
+            opacity: 1;
+        }
+
+        .back-link { 
+            display: block; 
+            margin-bottom: 20px; 
+            text-decoration: none; 
+            color: #00838f; 
+            font-weight: bold; 
+        }
+
+        .remove-button {
+            margin-top: 8px;
+            background: #ffebee;
+            color: #c62828;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .remove-button:hover {
+            background: #ffcdd2;
+        }
     </style>
 </head>
 <body>
     <a href="index.html" class="back-link">← Назад до свайпу</a>
     <h1>Обрані вакансії</h1>
-    <div id="tags-section" style="margin-bottom: 24px; background: #e3f2fd; padding: 12px 16px; border-radius: 8px;">
-        <h3 style="margin-top:0;">Ваші теги:</h3>
+    <div id="tags-section">
+        <h3>Ваші теги</h3>
         <div id="tags-list"></div>
-        <button onclick="saveTags()" style="margin-top:8px; background:#00838f; color:#fff; border:none; border-radius:5px; padding:6px 16px; cursor:pointer;">Зберегти теги</button>
-        <span id="tags-msg" style="color:green; margin-left:10px;"></span>
+        <button onclick="saveTags()" class="save-button">Зберегти теги</button>
+        <span id="tags-msg" class="save-message"></span>
     </div>
     <div id="vacancy-list">
         <p>Завантаження...</p>
     </div>
+
     <script>
-        // --- Заборонити доступ до кабінету незалогіненим ---
+        // Заборонити доступ до кабінету незалогіненим
         if (!getUserId()) {
             window.location.href = 'index.html';
         }
         const API_URL = 'http://127.0.0.1:5000/api/user/liked';
-        let userId = null;
+
+        // Масиви з тегами та їх описами (як в index.html)
+        const TAG_HINTS = {
+            '#OfficeManager': ['офіс-менеджер', 'office manager', 'адміністратор офісу', 'head of office', 'administration'],
+            '#ExecutiveAssistant': ['асистент керівника', 'помічник керівника', 'executive assistant', 'personal assistant', 'pa', 'виконавчий асистент'],
+            '#AdministrativeAssistant': ['адміністративний асистент', 'admin assistant', 'administrative support', 'адміністративна підтримка', 'секретар', 'receptionist', 'адміністратор'],
+            '#ProcurementManager': ['менеджер із закупівель', 'procurement specialist', 'purchasing manager', 'закупник', 'buyer', 'фахівець з постачання', 'постачальник'],
+            '#SaleAssistant': ['sale assistant', 'sale support', 'асистент з продажів', 'менеджер з продажу', 'продавець-консультант', 'sales'],
+            '#BusinessOwner': ['підприємець', 'керівник', 'власний бізнес', 'business owner', 'founder', 'ceo'],
+            '#LogisticsManager': ['менеджер з транспорту', 'логіст', 'координація логістики', 'logistics', 'transport manager', 'supply chain'],
+            '#DocumentManagement': ['документообіг', 'договірна робота', 'робота з документами', 'супровід документообігу', 'договори', 'contract management'],
+            '#OfficeMaintenance': ['підтримка життєдіяльності офісу', 'office support', 'адміністративно-господарська діяльність', 'забезпечення офісу'],
+            '#VendorManagement': ['взаємодія з постачальниками', 'пошук постачальників', 'робота з постачальниками', 'постачання', 'vendors', 'постачальники'],
+            '#CustomerService': ['робота з клієнтами', 'клієнтський сервіс', 'customer service', 'customer support', 'обслуговування клієнтів'],
+            '#Purchasing': ['закупівлі', 'постачання продукції', 'замовлення', 'контроль постачання', 'buying', 'procurement'],
+            '#StaffManagement': ['управління персоналом', 'підбір персоналу', 'team management', 'керівництво командою'],
+            '#Budgeting': ['бюджетування', 'фінансовий контроль', 'кошторис', 'фінанси'],
+            '#PrimaryAccounting': ['ведення первинної бухгалтерії', 'первинна документація', 'робота в 1с', 'координація з бухгалтерією', 'invoices', 'бухгалтерія', 'cash'],
+            '#1C': ['1с', '1с:бухгалтерія', 'робота в 1с'],
+            '#MicrosoftOffice': ['microsoft office', 'word', 'excel', 'powerpoint', 'MS office'],
+            '#CRM': ['crm', 'customer relationship management', 'срм'],
+            '#Trello': ['trello', 'трелло', 'project management tool'],
+            '#PhotoshopAdobe': ['photoshop', 'adobe', 'графічні редактори', 'дизайн'],
+            '#EnglishBeginner': ['англійська початковий', 'beginner', 'a1', 'a2', 'elementary', 'pre-intermediate', 'базовий'],
+            '#EnglishIntermediate': ['англійська середній', 'intermediate', 'b1', 'b2', 'upper-intermediate', 'середній', 'розмовний'],
+            '#EnglishAdvanced': ['англійська просунутий', 'advanced', 'c1', 'c2', 'fluent', 'proficiency', 'вільно', 'native speaker'],
+            '#English': ['англійська', 'english', 'мова', 'language', 'іноземна'],
+            '#UkrainianFluent': ['українська', 'вільно', 'ukrainian', 'fluent', 'рідна мова'],
+            '#Trainee': ['стажер', 'практикант', 'trainee'],
+            '#Junior': ['junior', 'початківець', 'молодший спеціаліст'],
+            '#Middle': ['middle', 'спеціаліст', 'досвідчений'],
+            '#Senior': ['senior', 'старший спеціаліст', 'провідний'],
+            '#Executive': ['executive', 'керівник', 'директор', 'head']
+        };
+
+        const ALL_TAGS = Object.keys(TAG_HINTS);
+
         function getUserId() {
-            // Для MVP: userId зберігається в sessionStorage після логіну/реєстрації
             return sessionStorage.getItem('userId') || localStorage.getItem('userId');
         }
 
@@ -58,7 +365,11 @@
         }
 
         // Завантажуємо вакансії при завантаженні сторінки
-        document.addEventListener('DOMContentLoaded', fetchLiked);
+        document.addEventListener('DOMContentLoaded', () => {
+            fetchLiked();
+            fetchUserTags();
+        });
+
         function renderVacancies(vacancies) {
             const vacancyList = document.getElementById('vacancy-list');
             if (!Array.isArray(vacancies)) {
@@ -85,9 +396,11 @@
                 html += `<div class="vacancy-card">
                     <div class="card-title">${v.title || 'Назва не вказана'}</div>
                     <div class="card-company">${v.company_name || 'Компанія'} · ${cityDisplay}</div>
-                    <div class="card-tags">${tags.map(tag => `<span class='tag'>${tag}</span>`).join('')}</div>
+                    <div class="card-tags">
+                        ${tags.map(tag => `<span class="vacancy-tag">${tag}</span>`).join('')}
+                    </div>
                     <a href="details.html?id=${v.id_source}" style="color:#00838f;">Детальніше →</a><br>
-                    <button onclick="removeVacancy('${v.id_source}')" style="margin-top:8px;background:#ffebee;color:#c62828;border:none;padding:6px 12px;border-radius:6px;cursor:pointer;">Видалити</button>
+                    <button onclick="removeVacancy('${v.id_source}')" class="remove-button">Видалити</button>
                 </div>`;
             });
             html += '</div>';
@@ -100,82 +413,126 @@
             fetch('http://127.0.0.1:5000/api/user/remove-liked', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ user_id: userId, id_source })
+                body: JSON.stringify({
+                    user_id: userId,
+                    id_source: id_source
+                })
             })
-            .then(r => r.json())
-            .then(data => {
-                if (data.status === 'success') {
+            .then(response => {
+                if (response.ok) {
                     fetchLiked();
                 } else {
-                    alert('Помилка при видаленні: ' + (data.error || data.message));
+                    throw new Error('Failed to remove vacancy');
                 }
             })
-            .catch(() => alert('Помилка мережі.'));
-        }
-
-        // --- ТЕГИ ---
-        const ALL_TAGS = [
-            '#OfficeManager', '#ExecutiveAssistant', '#AdministrativeAssistant', '#ProcurementManager',
-            '#SaleAssistant', '#BusinessOwner', '#LogisticsManager', '#DocumentManagement',
-            '#OfficeMaintenance', '#VendorManagement', '#CustomerService', '#Purchasing',
-            '#StaffManagement', '#Budgeting', '#PrimaryAccounting', '#1C',
-            '#MicrosoftOffice', '#CRM', '#Trello', '#PhotoshopAdobe',
-            '#EnglishBeginner', '#EnglishIntermediate', '#EnglishAdvanced', '#English',
-            '#UkrainianFluent', '#Trainee', '#Junior', '#Middle', '#Senior', '#Executive'
-        ];
-        let selectedTags = [];
-        function renderTags() {
-            const tagsList = document.getElementById('tags-list');
-            tagsList.innerHTML = '';
-            ALL_TAGS.forEach(tag => {
-                const checked = selectedTags.includes(tag) ? 'checked' : '';
-                const el = document.createElement('label');
-                el.style.marginRight = '10px';
-                el.innerHTML = `<input type='checkbox' value='${tag}' onchange='onTagChange(this)' ${checked}/> ${tag}`;
-                tagsList.appendChild(el);
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Помилка видалення вакансії. Спробуйте ще раз.');
             });
         }
-        function onTagChange(checkbox) {
-            if (checkbox.checked && !selectedTags.includes(checkbox.value)) selectedTags.push(checkbox.value);
-            else if (!checkbox.checked) selectedTags = selectedTags.filter(t => t !== checkbox.value);
+
+        // Функції для роботи з тегами (як в index.html)
+        function fetchUserTags() {
+            const userId = getUserId();
+            if (!userId) return;
+            
+            fetch(`http://127.0.0.1:5000/api/user/tags?user_id=${encodeURIComponent(userId)}`)
+                .then(response => response.json())
+                .then(data => {
+                    showTags(data.tags || []);
+                })
+                .catch(error => {
+                    console.error('Error fetching user tags:', error);
+                });
         }
+
+        function showTags(selectedTags = []) {
+            const tagsList = document.getElementById('tags-list');
+            tagsList.innerHTML = '';
+            
+            ALL_TAGS.forEach(tag => {
+                const label = document.createElement('label');
+                label.className = 'tag-label';
+                
+                // Створюємо підказку
+                const tooltip = document.createElement('span');
+                tooltip.className = 'tag-tooltip';
+                tooltip.textContent = TAG_HINTS[tag].join(', ');
+                
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.value = tag;
+                checkbox.checked = selectedTags.includes(tag);
+                
+                label.appendChild(checkbox);
+                const tagText = document.createElement('span');
+                tagText.className = 'tag-text';
+                tagText.textContent = tag.replace('#', '');
+                
+                label.appendChild(checkbox);
+                label.appendChild(tagText);
+                label.appendChild(tooltip);
+                
+                tagsList.appendChild(label);
+            });
+            
+            // Додаємо обробники подій для всіх чекбоксів
+            document.querySelectorAll('#tags-list input[type="checkbox"]').forEach(checkbox => {
+                // Встановлюємо початковий стан
+                const label = checkbox.closest('.tag-label');
+                if (checkbox.checked) {
+                    label.classList.add('selected');
+                }
+                
+                checkbox.onchange = function() {
+                    const msg = document.getElementById('tags-msg');
+                    msg.textContent = 'Не забудьте зберегти зміни!';
+                    msg.style.color = '#f57c00';
+                    msg.classList.add('visible');
+                    
+                    // Оновлюємо клас при зміні стану
+                    const label = this.closest('.tag-label');
+                    if (this.checked) {
+                        label.classList.add('selected');
+                    } else {
+                        label.classList.remove('selected');
+                    }
+                };
+            });
+        }
+
         function saveTags() {
             const userId = getUserId();
+            if (!userId) return alert('Спочатку увійдіть у систему.');
+            
+            const selectedTags = [...document.querySelectorAll('#tags-list input:checked')].map(cb => cb.value);
+            
             fetch('http://127.0.0.1:5000/api/user/tags', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ user_id: userId, tags: selectedTags })
+                body: JSON.stringify({
+                    user_id: userId,
+                    tags: selectedTags
+                })
             })
-            .then(() => {
-                document.getElementById('tags-msg').textContent = 'Збережено!';
-                setTimeout(()=>{document.getElementById('tags-msg').textContent='';}, 1500);
+            .then(response => {
+                if (response.ok) {
+                    const msg = document.getElementById('tags-msg');
+                    msg.textContent = 'Теги збережено!';
+                    msg.style.color = '#4caf50';
+                    msg.classList.add('visible');
+                    setTimeout(() => {
+                        msg.classList.remove('visible');
+                    }, 3000);
+                    return response.json();
+                }
+                throw new Error('Failed to save tags');
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Помилка збереження тегів. Спробуйте ще раз.');
             });
         }
-        function fetchUserTags() {
-            const userId = getUserId();
-            fetch('http://127.0.0.1:5000/api/user/profile?user_id=' + encodeURIComponent(userId))
-                .then(r => r.json())
-                .then(data => {
-                    selectedTags = data.selected_tags || [];
-                    renderTags();
-                });
-        }
-        function fetchLiked() {
-            userId = getUserId();
-            if (!userId) {
-                document.getElementById('vacancy-list').innerHTML = '<p>Спочатку увійдіть у систему.</p>';
-                return;
-            }
-            fetch(API_URL + '?user_id=' + encodeURIComponent(userId))
-                .then(r => r.json())
-                .then(renderVacancies);
-        }
-        // Зберігаємо userId після логіну/реєстрації (для інтеграції з index.html)
-        window.addEventListener('DOMContentLoaded', fetchLiked);
-        window.addEventListener('DOMContentLoaded', () => {
-            fetchLiked();
-            fetchUserTags();
-        });
     </script>
 </body>
 </html>
